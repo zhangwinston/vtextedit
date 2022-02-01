@@ -205,14 +205,17 @@ bool MarkdownUtils::insertHeading(QTextCursor &p_cursor, const QTextBlock &p_blo
     QString text = p_block.text();
     bool textChanged = false;
     auto match = matchHeader(text);
+    int level=0;
     if (match.m_matched) {
-        const int level = match.m_level;
-        if (level == targetLevel) {
-            return false;
-        } else {
+          level = match.m_level;
+//        const int level = match.m_level;
+//        if (level == targetLevel) { // repeat set same level, remove the title mark
+//            return false;
+//        } else {
+
             // Remove the title mark.
             int length = level;
-            if (targetLevel == 0) {
+            if (targetLevel == 0 ||level == targetLevel ) {
                 // Remove the whole prefix till the heading content.
                 length = match.m_level + match.m_spacesAfterMarker;
             }
@@ -222,11 +225,11 @@ bool MarkdownUtils::insertHeading(QTextCursor &p_cursor, const QTextBlock &p_blo
                                   length);
             p_cursor.removeSelectedText();
             textChanged = true;
-        }
+//        }
     }
 
     // Insert heading mark + " " at the front of the block.
-    if (targetLevel > 0) {
+    if (targetLevel > 0 && level != targetLevel) {
         // Remove the spaces at front.
         if (textChanged) {
             text = p_block.text();

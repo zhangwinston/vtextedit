@@ -32,6 +32,10 @@ namespace vte
 
         InplacePreviewSources m_inplacePreviewSources;
 
+        // leading space of lines in text
+        qreal m_leading_space_line_factor = 0.0;
+        // leading space of lines in code block
+        qreal m_leading_space_line_code_block_factor = 0.0;
         // Whether use WebCodeBlockHighlighter or KSyntaxCodeBlockHighlighter for code block syntax highlight.
         bool m_webCodeBlockHighlighterEnabled = true;
 

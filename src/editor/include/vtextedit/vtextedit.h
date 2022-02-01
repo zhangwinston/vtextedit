@@ -173,6 +173,10 @@ namespace vte
 
         void setLeaderKeyToSkip(int p_key, Qt::KeyboardModifiers p_modifiers);
 
+        //add by zhangyw leaderkey skip, navigationMode skip extra keys
+        void setNavigationModeKeysToSkip(int p_key, Qt::KeyboardModifiers p_modifiers, bool withLeaderKey);
+        //add by zhangyw leaderkey skip, navigationMode skip extra keys
+
     signals:
         void cursorLineChanged();
 
@@ -210,8 +214,6 @@ namespace vte
         void resizeEvent(QResizeEvent *p_event) Q_DECL_OVERRIDE;
 
         void keyPressEvent(QKeyEvent *p_event) Q_DECL_OVERRIDE;
-
-        void keyReleaseEvent(QKeyEvent *p_event) Q_DECL_OVERRIDE;
 
         bool eventFilter(QObject *p_obj, QEvent *p_event) Q_DECL_OVERRIDE;
 
@@ -326,11 +328,17 @@ namespace vte
         // which stops the triggering of the whole key sequence.
         // We will disable the input method after `Ctrl+G` is pressed to handle this case trickily.
         Key m_leaderKeyToSkip;
+        Key m_navigationModeKeysToSkip;
 
         bool m_inputMethodDisabledAfterLeaderKey = false;
 
         // keyReleaseEvent count needed to release the leader key.
         int m_leaderKeyReleaseCount = 0;
+
+        int m_navigationKeyCount = 0;
+        bool m_navigationMode = false;
+        bool m_navigationModeWithLeaderKey = true;
+
     };
 
     template <typename T>

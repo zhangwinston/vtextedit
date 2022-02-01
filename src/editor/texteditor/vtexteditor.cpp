@@ -1462,3 +1462,8 @@ void VTextEditor::setLeaderKeyToSkip(int p_key, Qt::KeyboardModifiers p_modifier
 {
     m_textEdit->setLeaderKeyToSkip(p_key, p_modifiers);
 }
+
+void VTextEditor::setNavigationModeKeyToSkip(int p_key, Qt::KeyboardModifiers p_modifiers, bool withLeaderkey)
+{
+    m_textEdit->setNavigationModeKeysToSkip(p_key, p_modifiers, withLeaderkey);
+}

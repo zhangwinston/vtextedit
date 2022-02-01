@@ -42,6 +42,9 @@ namespace vte
         qreal getLeadingSpaceOfLine() const;
         void setLeadingSpaceOfLine(qreal p_leading);
 
+        void setLeadingSpaceOfLineFactor(qreal p_leading);
+        void setLeadingSpaceOfCodeBlockFactor(qreal p_leading);
+
         // Return the block number which contains point @p_point.
         // If @p_point is at the border, returns the block below.
         int findBlockByPosition(const QPointF &p_point) const;
@@ -183,6 +186,11 @@ namespace vte
 
         // Set the leading space of a line.
         qreal m_leadingSpaceOfLine = 0;
+
+        // Set the leading space of a line.
+        qreal m_leadingSpaceOfLineFactor = 0;
+        qreal m_leadingSpaceOfCodeBlockFactor = 0;
+
 
         // Block count of the document.
         int m_blockCount = 0;

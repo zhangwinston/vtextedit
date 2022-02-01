@@ -263,18 +263,6 @@ void VTextEdit::keyPressEvent(QKeyEvent *p_event)
     }
 }
 
-void VTextEdit::keyReleaseEvent(QKeyEvent *p_event)
-{
-    if (m_inputMethodDisabledAfterLeaderKey) {
-        if (--m_leaderKeyReleaseCount < 0) {
-            m_inputMethodDisabledAfterLeaderKey = false;
-            setInputMethodEnabled(true);
-        }
-    }
-
-    QTextEdit::keyReleaseEvent(p_event);
-}
-
 void VTextEdit::handleDefaultKeyPress(QKeyEvent *p_event)
 {
     const int key = p_event->key();
@@ -356,18 +344,62 @@ void VTextEdit::handleDefaultKeyPress(QKeyEvent *p_event)
 bool VTextEdit::eventFilter(QObject *p_obj, QEvent *p_event)
 {
     switch (p_event->type()) {
+
+    //add by zhangyw leaderkey skip, navigationMode skip extra keys
+    case QEvent::FocusIn:
+    {
+        if( m_leaderKeyReleaseCount >0) {
+            m_leaderKeyReleaseCount=0;
+        }
+        if(m_navigationKeyCount>0){
+            m_navigationKeyCount=0;
+        }
+        break;
+    }
+    case QEvent::KeyRelease:
+    {
+        QKeyEvent *ke = static_cast<QKeyEvent *>(p_event);
+        if( m_leaderKeyReleaseCount >0) {
+            m_leaderKeyReleaseCount--;
+        }
+        if(m_leaderKeyReleaseCount<=0){
+            if( m_navigationMode ==false && m_navigationModeWithLeaderKey &&
+                    m_navigationModeKeysToSkip.m_key == ke->key() &&
+                    m_navigationModeKeysToSkip.m_modifiers == ke->modifiers()) {
+                m_navigationKeyCount=2;
+                m_navigationMode=true;
+            }
+        }
+        break;
+    }
     case QEvent::ShortcutOverride:
     {
         // This event is sent when a shortcut is about to trigger.
         // If the override event is accepted, the event is delivered
         // as a normal key press to the focus widget.
         QKeyEvent *ke = static_cast<QKeyEvent *>(p_event);
+
         if (m_inputMethodEnabled && ke->key() == m_leaderKeyToSkip.m_key && ke->modifiers() == m_leaderKeyToSkip.m_modifiers) {
             setInputMethodEnabled(false);
             m_inputMethodDisabledAfterLeaderKey = true;
-            m_leaderKeyReleaseCount = m_leaderKeyToSkip.GetKeyReleaseCount();
+            m_leaderKeyReleaseCount = m_leaderKeyToSkip.GetKeyReleaseCount()+1; // release count with function key, extra 1 letter
             break;
         }
+
+        //add by zhangyw navigationmode shortcut without leaderkey
+        if (m_inputMethodEnabled && m_navigationModeWithLeaderKey==false && ke->key() == m_navigationModeKeysToSkip.m_key && ke->modifiers() ==m_navigationModeKeysToSkip.m_modifiers) {
+            setInputMethodEnabled(false);
+            m_navigationMode = true;
+            m_navigationKeyCount = 2; // key count without function key, extra 2 letters
+            break;
+        }
+
+        //add by zhangyw navigationmode keys can't deal with keyrelease, change here
+        if(ke->modifiers()==Qt::NoModifier && m_navigationKeyCount >0) {
+            m_navigationKeyCount--;
+            break;
+        }
+        //add by zhangyw navigationmode keys can't deal with keyrelease, change here
 
         if (m_inputMode && m_inputMode->stealShortcut(ke)) {
             ke->accept();
@@ -380,6 +412,16 @@ bool VTextEdit::eventFilter(QObject *p_obj, QEvent *p_event)
     default:
         break;
     }
+
+    // add by zhangyw count is zero, change disable mode to enable
+    if (m_leaderKeyReleaseCount <= 0 && m_navigationKeyCount <= 0  ) {
+        if(m_inputMethodDisabledAfterLeaderKey || m_navigationMode ){
+            m_inputMethodDisabledAfterLeaderKey = false;
+            m_navigationMode = false;
+            setInputMethodEnabled(true);
+        }
+    }
+    // add by zhangyw count is zero, change disable mode to enable
 
     return QTextEdit::eventFilter(p_obj, p_event);
 }
@@ -761,6 +803,10 @@ void VTextEdit::setInputMethodEnabled(bool p_enabled)
     if (m_inputMethodEnabled != p_enabled) {
         m_inputMethodEnabled = p_enabled;
         m_inputMethodDisabledAfterLeaderKey = false;
+        m_leaderKeyReleaseCount=0;
+
+        m_navigationKeyCount=0;
+        m_navigationMode=false;
 
         QInputMethod *im = QGuiApplication::inputMethod();
         im->reset();
@@ -950,4 +996,11 @@ void VTextEdit::setLeaderKeyToSkip(int p_key, Qt::KeyboardModifiers p_modifiers)
 {
     m_leaderKeyToSkip.m_key = p_key;
     m_leaderKeyToSkip.m_modifiers = p_modifiers;
+}
+
+void VTextEdit::setNavigationModeKeysToSkip(int p_key, Qt::KeyboardModifiers p_modifiers, bool withLeaderKey)
+{
+    m_navigationModeKeysToSkip.m_key = p_key;
+    m_navigationModeKeysToSkip.m_modifiers = p_modifiers;
+    m_navigationModeWithLeaderKey = withLeaderKey;
 }

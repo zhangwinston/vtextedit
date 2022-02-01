@@ -18,7 +18,7 @@
 
 using namespace vte;
 
-const int TextDocumentLayout::c_markerThickness = 2;
+const int TextDocumentLayout::c_markerThickness = 1;  //zhangyw modify from 2 to 1
 
 const int TextDocumentLayout::c_maxInlineImageHeight = 400;
 
@@ -496,6 +496,18 @@ void TextDocumentLayout::layoutBlock(const QTextBlock &p_block)
     QTextLayout *tl = p_block.layout();
     QTextOption option = doc->defaultTextOption();
 
+    //zhangyw add space for lines/codeblock
+    if(p_block.length()>1 ){
+        if(p_block.userState()==-1){
+            setLeadingSpaceOfLine(QFontMetrics((p_block.charFormat()).font()).height()*m_leadingSpaceOfLineFactor);
+        } else {
+            setLeadingSpaceOfLine(QFontMetrics((p_block.charFormat()).font()).height()*m_leadingSpaceOfCodeBlockFactor);
+        }
+    } else {
+        setLeadingSpaceOfLine(0);
+    }
+    //zhangyw add space for lines/codeblock
+
     {
         auto direction = p_block.textDirection();
         option.setTextDirection(direction);
@@ -812,7 +824,8 @@ QRectF TextDocumentLayout::blockRectFromTextLayout(const QTextBlock &p_block,
                 if (p_image) {
                     p_image->m_name = img->m_imageName;
                     p_image->m_rect = QRectF(padding + m_margin,
-                                             br.height() + m_leadingSpaceOfLine + c_imagePadding,
+            //                                 br.height() + m_leadingSpaceOfLine + c_imagePadding,
+                                             br.height() + c_imagePadding,  // zhangyw modify remove leadingSpaceOfLine
                                              size.width(),
                                              size.height());
                     if (img->m_backgroundColor != 0) {
@@ -821,7 +834,8 @@ QRectF TextDocumentLayout::blockRectFromTextLayout(const QTextBlock &p_block,
                 }
 
                 int dw = padding + size.width() + m_margin - br.width();
-                int dh = size.height() + m_leadingSpaceOfLine + c_imagePadding * 2;
+                //int dh = size.height() + m_leadingSpaceOfLine + c_imagePadding * 2;
+                int dh = size.height() + c_imagePadding * 2; // zhangyw modify remove leadingSpaceOfLine
                 br.adjust(0, 0, dw > 0 ? dw : 0, dh);
             }
         }
@@ -1168,6 +1182,18 @@ void TextDocumentLayout::setLeadingSpaceOfLine(qreal p_leading)
 {
     if (p_leading >= 0) {
         m_leadingSpaceOfLine = p_leading;
+    }
+}
+void TextDocumentLayout::setLeadingSpaceOfLineFactor(qreal p_leading_space_factor)
+{
+    if (p_leading_space_factor >= 0) {
+        m_leadingSpaceOfLineFactor = p_leading_space_factor;
+    }
+}
+void TextDocumentLayout::setLeadingSpaceOfCodeBlockFactor(qreal p_leading_space_codeblock_factor)
+{
+    if (p_leading_space_codeblock_factor >= 0) {
+        m_leadingSpaceOfCodeBlockFactor = p_leading_space_codeblock_factor;
     }
 }
 
