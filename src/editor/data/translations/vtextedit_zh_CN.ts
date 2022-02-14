@@ -36,47 +36,47 @@
 <context>
     <name>vte::VTextEditTranslate</name>
     <message>
-        <location filename="../../include/vtextedit/global.h" line="38"/>
+        <location filename="../../include/vtextedit/global.h" line="39"/>
         <source>Insert</source>
         <translation>插入</translation>
     </message>
     <message>
-        <location filename="../../include/vtextedit/global.h" line="41"/>
+        <location filename="../../include/vtextedit/global.h" line="42"/>
         <source>Overwrite</source>
         <translation>改写</translation>
     </message>
     <message>
-        <location filename="../../include/vtextedit/global.h" line="44"/>
+        <location filename="../../include/vtextedit/global.h" line="45"/>
         <source>Normal (Vi)</source>
         <translation>普通 (Vi)</translation>
     </message>
     <message>
-        <location filename="../../include/vtextedit/global.h" line="47"/>
+        <location filename="../../include/vtextedit/global.h" line="48"/>
         <source>Insert (Vi)</source>
         <translation>插入 (Vi)</translation>
     </message>
     <message>
-        <location filename="../../include/vtextedit/global.h" line="50"/>
+        <location filename="../../include/vtextedit/global.h" line="51"/>
         <source>Visual (Vi)</source>
         <translation>可视 (Vi)</translation>
     </message>
     <message>
-        <location filename="../../include/vtextedit/global.h" line="53"/>
+        <location filename="../../include/vtextedit/global.h" line="54"/>
         <source>Visual Line (Vi)</source>
         <translation>可视行 (Vi)</translation>
     </message>
     <message>
-        <location filename="../../include/vtextedit/global.h" line="56"/>
+        <location filename="../../include/vtextedit/global.h" line="57"/>
         <source>Visual Block (Vi)</source>
         <translation>可视块 (Vi)</translation>
     </message>
     <message>
-        <location filename="../../include/vtextedit/global.h" line="59"/>
+        <location filename="../../include/vtextedit/global.h" line="60"/>
         <source>Replace (Vi)</source>
         <translation>替换 (Vi)</translation>
     </message>
     <message>
-        <location filename="../../include/vtextedit/global.h" line="62"/>
+        <location filename="../../include/vtextedit/global.h" line="63"/>
         <source>Unknown</source>
         <translation>未知</translation>
     </message>
@@ -87,7 +87,7 @@
         <translation>记录中</translation>
     </message>
     <message>
-        <location filename="../../inputmode/viinputmodefactory.cpp" line="35"/>
+        <location filename="../../inputmode/viinputmodefactory.cpp" line="33"/>
         <source>Vi input mode</source>
         <translation>Vi 输入模式</translation>
     </message>
@@ -100,22 +100,27 @@
 <context>
     <name>vte::VTextEditor</name>
     <message>
-        <location filename="../../texteditor/vtexteditor.cpp" line="1255"/>
+        <location filename="../../texteditor/vtexteditor.cpp" line="1305"/>
+        <source>Zero-length match</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../texteditor/vtexteditor.cpp" line="1375"/>
         <source>Spelling &quot;%1&quot;</source>
         <translation>拼写 &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../../texteditor/vtexteditor.cpp" line="1257"/>
+        <location filename="../../texteditor/vtexteditor.cpp" line="1377"/>
         <source>Ignore Word</source>
         <translation>忽略词</translation>
     </message>
     <message>
-        <location filename="../../texteditor/vtexteditor.cpp" line="1265"/>
+        <location filename="../../texteditor/vtexteditor.cpp" line="1385"/>
         <source>Add To Dictionary</source>
         <translation>添加到词典</translation>
     </message>
     <message>
-        <location filename="../../texteditor/vtexteditor.cpp" line="1277"/>
+        <location filename="../../texteditor/vtexteditor.cpp" line="1397"/>
         <source>No Suggestions</source>
         <translation>无建议</translation>
     </message>

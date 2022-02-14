@@ -497,13 +497,13 @@ void TextDocumentLayout::layoutBlock(const QTextBlock &p_block)
     QTextOption option = doc->defaultTextOption();
 
     //zhangyw add space for lines/codeblock
-    if(p_block.length()>1 ){
-        if(p_block.userState()==-1){
-            setLeadingSpaceOfLine(QFontMetrics((p_block.charFormat()).font()).height()*m_leadingSpaceOfLineFactor);
-        } else {
-            setLeadingSpaceOfLine(QFontMetrics((p_block.charFormat()).font()).height()*m_leadingSpaceOfCodeBlockFactor);
-        }
+    if(p_block.userState()==-1){
+        setLeadingSpaceOfLine(QFontMetrics((p_block.charFormat()).font()).height()*m_leadingSpaceOfLineFactor);
     } else {
+        setLeadingSpaceOfLine(QFontMetrics((p_block.charFormat()).font()).height()*m_leadingSpaceOfCodeBlockFactor);
+    }
+
+    if(p_block.length()<=1 && p_block.next().isValid() ){
         setLeadingSpaceOfLine(0);
     }
     //zhangyw add space for lines/codeblock
@@ -642,6 +642,7 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block,
     p_tl->beginLayout();
 
     int imgIdx = 0;
+    bool firstLine = true;
     while (true) {
         QTextLine line = p_tl->createLine();
         if (!line.isValid()) {
@@ -652,6 +653,15 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block,
         // line.setLeadingIncluded(true);
         line.setLineWidth(p_availableWidth);
         p_height += m_leadingSpaceOfLine;
+
+        if(firstLine==true){
+            firstLine=false;
+            auto preBlk = p_block.previous();
+            if(preBlk.isValid()==false || preBlk.length()<=1)
+            {
+                p_height -= m_leadingSpaceOfLine;
+            }
+        }
 
         if (pPreviewData) {
             QVector<const PreviewImageData *> images;
