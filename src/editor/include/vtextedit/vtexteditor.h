@@ -128,6 +128,7 @@ namespace vte
         void enterInsertModeIfApplicable();
 
         void insertText(const QString &p_text);
+        void indsertTextWithNewline(const QString &p_text);
 
         int zoomDelta() const;
 

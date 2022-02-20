@@ -121,6 +121,11 @@ namespace vte
                              FindFlags p_flags,
                              int p_start = 0);
 
+        QTextCursor matchText(const QString &p_text,
+                             FindFlags p_flags,
+                              int p_start = 0,
+                              int p_end = -1);
+
         void setInputMode(const QSharedPointer<AbstractInputMode> &p_mode);
         QSharedPointer<AbstractInputMode> getInputMode() const;
 
@@ -260,6 +265,12 @@ namespace vte
                                        QTextDocument::FindFlags p_flags,
                                        int p_start);
 
+        template <typename T>
+        QTextCursor matchTextInDocument(const T &p_text,
+                                       QTextDocument::FindFlags p_flags,
+                                        int p_start,
+                                        int p_end);
+
         QString getSelectedText(const Selection &p_selection) const;
 
         // Return true if the event is handled.
@@ -340,7 +351,8 @@ namespace vte
         bool m_navigationModeWithLeaderKey = true;
 
     };
-
+//comment
+#if 0
     template <typename T>
     QList<QTextCursor> VTextEdit::findAllTextInDocument(const T &p_text,
                                                         QTextDocument::FindFlags p_flags,
@@ -373,6 +385,7 @@ namespace vte
 
         return results;
     }
+#endif
 
     template <typename T>
     QTextCursor VTextEdit::findTextInDocument(const T &p_text,
@@ -420,5 +433,25 @@ namespace vte
             return cursor;
         }
     }
+
+//add by zhangyw for newline
+    template <typename T>
+        QTextCursor VTextEdit::matchTextInDocument(const T &p_text,
+                                                  QTextDocument::FindFlags p_flags,
+                                                  int p_start,
+                                                  int p_end)
+        {
+            auto doc = document();
+            int start = p_start;
+            int end = p_end == -1 ? doc->characterCount() + 1 : p_end;
+            QTextCursor cursor;
+
+            cursor = doc->find(p_text, start, p_flags);
+            if (start < end){
+                return cursor;
+            }
+            return QTextCursor();
+        }
+//add by zhangyw for newline
 }
 #endif

@@ -1112,14 +1112,33 @@ VTextEditor::FindResult VTextEditor::replaceText(const QString &p_text,
         Q_ASSERT(!cursor.isNull());
         result.m_totalMatches = 1;
 
-        if ((p_flags & FindFlag::RegularExpression) && hasBackReference(p_text)) {
-            auto newText = resolveBackReferenceInReplaceText(p_replaceText,
-                                                             TextEditUtils::getSelectedText(cursor),
-                                                             QRegularExpression(p_text));
-            cursor.insertText(newText);
-        } else {
-            cursor.insertText(p_replaceText);
+        //modfiy by zhangyw for newline replace
+        QString newText=p_replaceText;
+        QStringList newlist;
+
+        if (p_flags & FindFlag::RegularExpression){
+
+            if(hasBackReference(p_text)) {
+                newText = resolveBackReferenceInReplaceText(p_replaceText,
+                                                            TextEditUtils::getSelectedText(cursor),
+                                                            QRegularExpression(p_text));
+            }
+
+            newlist=TextUtils::toListWithNewline(newText);
         }
+
+        if(!newlist.isEmpty()){
+            for (auto item : newlist) {
+                if(item=="\\n"){
+                    cursor.insertBlock();
+                }else{
+                    cursor.insertText(item);
+                }
+            }
+        } else {
+            cursor.insertText(newText);
+        }
+        //modfiy by zhangyw for newline replace
         m_textEdit->setTextCursor(cursor);
     }
     return result;
@@ -1148,19 +1167,39 @@ VTextEditor::FindResult VTextEditor::replaceAll(const QString &p_text,
         cursor.beginEditBlock();
         bool hasBackRef = (p_flags & FindFlag::RegularExpression) ? hasBackReference(p_text) : false;
         QRegularExpression regExp(hasBackRef ? p_text : QString());
+
+        //modify by zhangyw for newline
         for (const auto &result : allResults) {
             cursor.setPosition(result.selectionStart());
             cursor.setPosition(result.selectionEnd(), QTextCursor::KeepAnchor);
 
+            QString newText=p_replaceText;
+            QStringList newlist;
+
             if (hasBackRef) {
-                auto newText = resolveBackReferenceInReplaceText(p_replaceText,
-                                                                 TextEditUtils::getSelectedText(cursor),
-                                                                 regExp);
+                newText = resolveBackReferenceInReplaceText(p_replaceText,
+                                                            TextEditUtils::getSelectedText(cursor),
+                                                            regExp);
+            }
+
+            if (p_flags & FindFlag::RegularExpression) {
+                newlist=TextUtils::toListWithNewline(newText);
+            }
+
+            if(!newlist.isEmpty()){
+                for (auto item : newlist) {
+                    if(item=="\\n"){
+                        cursor.insertBlock();
+                    }else{
+                        cursor.insertText(item);
+                    }
+                }
+            }else{
                 cursor.insertText(newText);
-            } else {
-                cursor.insertText(p_replaceText);
             }
         }
+
+        //modify by zhangyw for newline
         cursor.endEditBlock();
         m_textEdit->setTextCursor(cursor);
     }

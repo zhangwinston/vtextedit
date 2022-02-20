@@ -227,3 +227,28 @@ bool TextUtils::isEscaped(const QString &p_text, int p_offset, const QChar &p_es
 
     return (escapeCnt % 2) == 1;
 }
+
+QStringList TextUtils::toListWithNewline(const QString &p_text)
+{
+    int index = 0;
+    QStringList result;
+
+    int start_pos=0;
+    while ((index = p_text.indexOf("\\n", index)) != -1) {
+        if(index>start_pos)
+        {
+            QString str_item=p_text.mid(start_pos,index-start_pos);
+            result.append(str_item);
+        }
+        result.append("\\n");
+        ++index;
+        ++index;
+        start_pos=index;
+    }
+
+//不包含newline字符，则反馈空作为一个单项加入到list，共用下面的代码
+//    if(result.count()==0){
+//        result.append(p_text);
+//    }
+    return result;
+}
