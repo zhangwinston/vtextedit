@@ -708,6 +708,9 @@ void MarkdownUtils::typeBlockMarker(VTextEdit *p_edit,
         cursor.setPosition(start);
         const QString indentSpaces = TextUtils::fetchIndentationSpaces(cursor.block().text());
         cursor.setPosition(end);
+        if(cursor.atBlockStart()){
+            cursor.setPosition(QTextCursor::PreviousCharacter);
+        }
         TextEditUtils::insertBlock(cursor, false);
         cursor.insertText(indentSpaces + p_endMarker);
 
