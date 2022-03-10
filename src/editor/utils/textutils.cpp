@@ -228,7 +228,7 @@ bool TextUtils::isEscaped(const QString &p_text, int p_offset, const QChar &p_es
     return (escapeCnt % 2) == 1;
 }
 
-QStringList TextUtils::toListWithNewline(const QString &p_text)
+QStringList TextUtils::listWithNewline(const QString &p_text)
 {
     int index = 0;
     QStringList result;
@@ -245,10 +245,6 @@ QStringList TextUtils::toListWithNewline(const QString &p_text)
         ++index;
         start_pos=index;
     }
-
-//不包含newline字符，则反馈空作为一个单项加入到list，共用下面的代码
-//    if(result.count()==0){
-//        result.append(p_text);
-//    }
+//不包含newline字符，则直接返回
     return result;
 }

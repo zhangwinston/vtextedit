@@ -1118,13 +1118,13 @@ VTextEditor::FindResult VTextEditor::replaceText(const QString &p_text,
 
         if (p_flags & FindFlag::RegularExpression){
 
-            if(hasBackReference(p_text)) {
+            if(hasBackReference(p_replaceText)) {
                 newText = resolveBackReferenceInReplaceText(p_replaceText,
                                                             TextEditUtils::getSelectedText(cursor),
                                                             QRegularExpression(p_text));
             }
 
-            newlist=TextUtils::toListWithNewline(newText);
+            newlist=TextUtils::listWithNewline(newText);
         }
 
         if(!newlist.isEmpty()){
@@ -1165,7 +1165,7 @@ VTextEditor::FindResult VTextEditor::replaceAll(const QString &p_text,
         // Replace all matches one by one.
         auto cursor = m_textEdit->textCursor();
         cursor.beginEditBlock();
-        bool hasBackRef = (p_flags & FindFlag::RegularExpression) ? hasBackReference(p_text) : false;
+        bool hasBackRef = (p_flags & FindFlag::RegularExpression) ? hasBackReference(p_replaceText) : false;
         QRegularExpression regExp(hasBackRef ? p_text : QString());
 
         //modify by zhangyw for newline
@@ -1183,7 +1183,7 @@ VTextEditor::FindResult VTextEditor::replaceAll(const QString &p_text,
             }
 
             if (p_flags & FindFlag::RegularExpression) {
-                newlist=TextUtils::toListWithNewline(newText);
+                newlist=TextUtils::listWithNewline(newText);
             }
 
             if(!newlist.isEmpty()){

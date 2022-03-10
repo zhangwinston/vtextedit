@@ -10,6 +10,39 @@ class QTextDocument;
 
 namespace vte
 {
+    struct RangeInfo
+    {
+        //format of visible part
+        QTextCharFormat m_chf;
+
+        //flag of range visbile content changed
+        bool visible_changed=false;
+
+        //text of visible part
+        QString m_visible_text;
+
+        //width of visible part
+        qreal m_visible_width=0;
+
+        //width of range (visible+hide)
+        qreal m_total_width=0;
+
+        //position of text start in block
+        int m_start;
+
+        //length of text in block
+        int m_len;
+    };
+    struct LineInfo
+    {
+        QTextBlock* m_pblock;
+        QTextLine* m_pline;
+        int m_line_num;
+        bool m_all_line=true; //true mean get range from line
+        int m_part_begin;
+        int m_part_len;
+    };
+
     class VTEXTEDIT_EXPORT TextEditUtils
     {
     public:
@@ -19,6 +52,7 @@ namespace vte
             Center,
             Bottom
         };
+
 
         TextEditUtils() = delete;
 
@@ -79,6 +113,11 @@ namespace vte
         static QString getSelectedText(const QTextCursor &p_cursor);
 
         static void ensureBlockVisible(QTextEdit *p_edit, int p_blockNumber);
+
+        static void getRanges(LineInfo lineInfo,QVector<RangeInfo> &p_ranges, int pos);
+        static void rangeVisibleChange(RangeInfo* range,LineInfo lineInfo, int pos);
+        static qreal getTextWidth(const QTextCharFormat chf, QString text);
+        static RangeInfo getRangesWidth(QVector<RangeInfo> &p_ranges);
     };
 }
 

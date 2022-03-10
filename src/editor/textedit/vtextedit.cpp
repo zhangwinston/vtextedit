@@ -207,7 +207,7 @@ QList<QTextCursor> VTextEdit::findAllText(const QString &p_text,
     int matched_end = -1;
 
     if (p_flags & FindFlag::RegularExpression) {
-        QStringList testList=TextUtils::toListWithNewline(p_text);
+        QStringList testList=TextUtils::listWithNewline(p_text);
         if(!testList.isEmpty())
         {
             int start_first = p_start;

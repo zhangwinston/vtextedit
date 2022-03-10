@@ -210,6 +210,7 @@ void VMarkdownEditor::updateInplacePreviewSources()
 
 bool VMarkdownEditor::eventFilter(QObject *p_obj, QEvent *p_event)
 {
+    //qWarning()<<"VMarkdownEditor Event "<<p_event->type();
     if (p_obj == m_textEdit) {
         switch (p_event->type()) {
         case QEvent::KeyPress:
@@ -217,7 +218,6 @@ bool VMarkdownEditor::eventFilter(QObject *p_obj, QEvent *p_event)
                 return true;
             }
             break;
-
         default:
             break;
         }
@@ -227,6 +227,11 @@ bool VMarkdownEditor::eventFilter(QObject *p_obj, QEvent *p_event)
 
 bool VMarkdownEditor::handleKeyPressEvent(QKeyEvent *p_event)
 {
+    //add by zhangyw for refresh new painter result
+    int pos=m_textEdit->textCursor().position();
+    documentLayout()->setCursorPos(pos);
+    m_textEdit->viewport()->update();
+
     Q_UNUSED(p_event);
     return false;
 }
