@@ -1,4 +1,4 @@
-#include <vtextedit/blocktextata.h>
+﻿#include <vtextedit/blocktextata.h>
 
 #include <QFontMetrics>
 #include <QPainter>
@@ -41,9 +41,11 @@ void BlockTextData::getBlockLines()
         LineInfo li;
         li.m_tl=m_pblock->layout()->lineAt(line);
         li.m_tl_num=line;
-        li.m_total_line=true;
+        li.m_full=true;
         getLineRanges(li);
-
+        if(li.m_ranges.count()>0){
+            li.m_changed_width=li.m_width-li.m_visible_width;
+        }
         m_lines.append(li);
     }
 }
@@ -52,16 +54,16 @@ void BlockTextData::getLineRanges(LineInfo& li)
 {
     QVector<RangeInfo> ranges;
 
-    if(li.m_total_line && li.m_tl.textLength()<1) return;
+    if(li.m_full && li.m_tl.textLength()<1) return;
 
-    if(li.m_total_line==false && li.m_part_len < 1)return;
+    if(li.m_full==false && li.m_part_len < 1)return;
 
     QVector<QTextLayout::FormatRange> fmt = m_pblock->layout()->formats();
 
     //每行倒序绘制range，从尾部开始绘制
     int start=0;
     int end=0;
-    if(li.m_total_line){
+    if(li.m_full){
         start=li.m_tl.textStart();
         end=li.m_tl.textStart()+li.m_tl.textLength();
     }else{
@@ -122,10 +124,22 @@ void BlockTextData::getLineRanges(LineInfo& li)
     }while(start < range_start);
 
     for(int i=ranges.count()-1; i>=0;i--){
-        if(li.m_total_line){
+        if(li.m_full){
+            li.m_width=0;
+            li.m_visible_width=0;
+
             li.m_ranges.append(ranges.at(i));
+
+            li.m_width+=ranges.at(i).m_width;
+            li.m_visible_width+=ranges.at(i).m_visible_width;
         }else{
+            li.m_width_selection=0;
+            li.m_visible_width_selection=0;
+
             li.m_select_ranges.append(ranges.at(i));
+
+            li.m_width_selection+=ranges.at(i).m_width;
+            li.m_visible_width_selection+=ranges.at(i).m_visible_width;
         }
     }
     return;
@@ -145,11 +159,11 @@ void BlockTextData::rangeVisibleChange(RangeInfo* range, LineInfo li)
     QTextLine tl=li.m_tl;
 
     QString text=m_pblock->text().mid(range->m_start,range->m_len);
-    range->m_total_width=getTextWidth(range->m_chf,text);
+    range->m_width=getTextWidth(range->m_chf,text);
 
     //default range content is visible
     range->m_visible_changed=false;
-    range->m_visible_width=range->m_total_width;
+    range->m_visible_width=range->m_width;
 
     //heading line hide "# "
     if(m_cursorPosition < m_pblock->position() || (m_cursorPosition >(m_pblock->position()+ tl.textLength()))){
@@ -207,16 +221,6 @@ void BlockTextData::rangeVisibleChange(RangeInfo* range, LineInfo li)
             }
         }
     }
-}
-
-RangeInfo BlockTextData::getRangesWidth(QVector<RangeInfo> ranges)
-{
-    RangeInfo result;
-    for(int i=0;i<ranges.count();i++){
-        result.m_visible_width+=ranges.at(i).m_visible_width;
-        result.m_total_width+=ranges.at(i).m_total_width;
-    }
-    return result;
 }
 
 void BlockTextData::setPenAndDrawBackground(QPainter *p, const QPen &defaultPen, const QTextCharFormat &chf, const QRectF &r)
@@ -295,6 +299,74 @@ void BlockTextData::lineDraw( LineInfo li, QPainter *p_painter,QPointF pos,QText
     }
 }
 
+void BlockTextData::blockDraw(QPainter *p_painter,QPointF pos,QTextCharFormat selection_chf, int firstLine, int lastLine)
+{
+    qreal preline_blank=0;
+
+    for (int line = firstLine; line< lastLine; ++line) {
+        LineInfo li=m_lines[line];
+
+        if (li.m_ranges.isEmpty()) {
+            continue;
+        }
+
+        QTextCharFormat chf=m_pblock->charFormat();
+
+        if (selection_chf.isValid()) {
+            chf.merge(selection_chf);
+            QPen pen = p_painter->pen();
+            setPenAndDrawBackground(p_painter, pen, chf, li.m_tl.rect());
+        }
+
+        QPointF position=pos+li.m_tl.position();
+
+        qreal width=0;
+        RangeInfo range;
+
+        for (int i=0;i< li.m_ranges.count();i++) {
+            range=li.m_ranges.at(i);
+
+            position.rx()+=width;
+            QTextCharFormat chf=range.m_chf;
+            if (selection_chf.isValid()) {
+                chf.merge(selection_chf);
+            }
+
+            QFont f = chf.font();
+            f.resolve(QFont::AllPropertiesResolved);
+            const QFont oldFont = p_painter->font();
+            p_painter->setFont(f);
+
+            const QPen oldPen = p_painter->pen();
+            QBrush fg = chf.foreground();
+            QPen pen;
+            if (fg.style() != Qt::NoBrush) {
+                pen.setBrush(fg);
+                p_painter->setPen(pen);
+            }
+
+            QFontMetrics fm(f);
+
+            QString text;
+            if(range.m_visible_changed){
+                text=range.m_visible_text;
+            } else {
+                text=m_pblock->text().mid(range.m_start,range.m_len);
+            }
+
+            width=fm.horizontalAdvance(text);
+
+            QRectF rect(position.x(),position.y(),width,li.m_tl.height());
+
+            p_painter->drawText(rect, Qt::AlignVCenter, text, 0);
+
+            p_painter->setPen(oldPen);
+            p_painter->setFont(oldFont);
+        }
+        preline_blank+=li.m_changed_width;
+    }
+}
+
 const QRectF BlockTextData::clipIfValid(const QRectF &rect, const QRectF &clip)
 {
     return clip.isValid() ? (rect & clip) : rect;
@@ -309,16 +381,16 @@ void BlockTextData::addSelectedRegionsToPath(LineInfo& li,const QPointF &pos, QT
     qreal range_width=0;
     RangeInfo result;
 
-    li.m_total_line=false;
+    li.m_full=false;
     if(li.m_selectionStartInLine){ //get offset before range
         li.m_part_begin=li.m_tl.textStart();
         li.m_part_len= selection->start-li.m_tl.textStart();
         getLineRanges(li);
-        result=getRangesWidth(li.m_select_ranges);
-        range_off+=result.m_visible_width;
-        li.m_line_visible_changed_width+=result.m_total_width-result.m_visible_width;
-        li.m_select_ranges.clear();
-
+        if(li.m_select_ranges.count()>0){
+            range_off+=li.m_visible_width_selection;
+            li.m_changed_width_selection+=li.m_width_selection-li.m_visible_width_selection;
+            li.m_select_ranges.clear();
+        }
         li.m_part_begin=selection->start;
     } else{
         li.m_part_begin=li.m_tl.textStart();
@@ -327,19 +399,20 @@ void BlockTextData::addSelectedRegionsToPath(LineInfo& li,const QPointF &pos, QT
     if(li.m_selectionEndInLine ){// get width to range end
         li.m_part_len=selection->start+selection->length - li.m_part_begin;
         getLineRanges(li);
-        result=getRangesWidth(li.m_select_ranges);
-        range_width+=result.m_visible_width;
-        li.m_line_visible_changed_width+=result.m_total_width-result.m_visible_width;
-        li.m_select_ranges.clear();
-
+        if(li.m_select_ranges.count()>0){
+            range_width+=li.m_visible_width_selection;
+            li.m_changed_width_selection+=li.m_width_selection-li.m_visible_width_selection;
+            li.m_select_ranges.clear();
+        }
     }else{ // get width to line end
 
         li.m_part_len=li.m_tl.textStart()+li.m_tl.textLength() - li.m_part_begin;
         getLineRanges(li);
-        result=getRangesWidth(li.m_select_ranges);
-        range_width+=result.m_visible_width;
-        li.m_line_visible_changed_width+=result.m_total_width-result.m_visible_width;
-        li.m_select_ranges.clear();
+        if(li.m_select_ranges.count()>0){
+            range_width+=li.m_visible_width_selection;
+            li.m_changed_width_selection+=li.m_width_selection-li.m_visible_width_selection;
+            li.m_select_ranges.clear();
+        }
     }
 
     qreal lineHeight = li.m_tl.height();
@@ -436,7 +509,7 @@ void BlockTextData::draw(QPainter *p, const QPointF &offset,const QAbstractTextD
             } else if (!selectionEndInLine
                        && isLastLineInBlock
                        &&!(option.flags() & QTextOption::ShowLineAndParagraphSeparators)) {
-                region.addRect(clipIfValid(QRectF(lineRect.right()-li.m_line_visible_changed_width, lineRect.top(),
+                region.addRect(clipIfValid(QRectF(lineRect.right()-li.m_changed_width_selection, lineRect.top(),
                                                   lineRect.height()/4, lineRect.height()), clip));
             }
         }

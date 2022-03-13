@@ -20,7 +20,7 @@ namespace vte
         //width of visible part
         qreal m_visible_width=0;
         //width of range (visible+hide)
-        qreal m_total_width=0;
+        qreal m_width=0;
         //position of text start in block
         int m_start;
         //length of text in block
@@ -36,13 +36,19 @@ namespace vte
         bool m_selectionStartInLine=false;
         bool m_selectionEndInLine=false;
 
-        bool m_total_line=true; //true mean get range from line
+        bool m_full=true; //true mean get range from line
         int m_part_begin;
         int m_part_len;
 
+        qreal m_visible_width_selection=0;
+        qreal m_width_selection=0;
+
         qreal m_visible_width=0;
         qreal m_width=0;
-        qreal m_line_visible_changed_width=0;
+
+        qreal m_changed_width_selection=0;
+        qreal m_changed_width=0;
+
         QVector<RangeInfo> m_ranges;
         QVector<RangeInfo> m_select_ranges;
     };
@@ -67,6 +73,7 @@ namespace vte
         void getBlockLines();
         void setPenAndDrawBackground(QPainter *p, const QPen &defaultPen, const QTextCharFormat &chf, const QRectF &r);
         void lineDraw( LineInfo line, QPainter *p_painter,QPointF pos,QTextCharFormat selection_chf);
+        void blockDraw(QPainter *p_painter,QPointF pos,QTextCharFormat selection_chf, int firstLine, int lastLine);
         void getLineRanges(LineInfo& lineInfo);
         RangeInfo getRangesWidth(QVector<RangeInfo> ranges);
         void rangeVisibleChange(RangeInfo* range,LineInfo line);
