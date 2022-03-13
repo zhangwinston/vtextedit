@@ -229,7 +229,6 @@ bool VMarkdownEditor::handleKeyPressEvent(QKeyEvent *p_event)
 {
     //add by zhangyw for refresh new painter result
     int pos=m_textEdit->textCursor().position();
-    documentLayout()->setCursorPos(pos);
     m_textEdit->viewport()->update();
 
     Q_UNUSED(p_event);

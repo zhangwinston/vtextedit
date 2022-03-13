@@ -220,6 +220,8 @@ namespace vte
 
         void keyPressEvent(QKeyEvent *p_event) Q_DECL_OVERRIDE;
 
+        void keyReleaseEvent(QKeyEvent *p_event) Q_DECL_OVERRIDE;
+
         bool eventFilter(QObject *p_obj, QEvent *p_event) Q_DECL_OVERRIDE;
 
         bool canInsertFromMimeData(const QMimeData *p_source) const Q_DECL_OVERRIDE;
@@ -290,6 +292,8 @@ namespace vte
         bool handleKeyReturn(QKeyEvent *p_event);
 
         static QChar matchingClosingBracket(const QChar &p_open);
+
+        void recoverInputMethodEnabled();
 
         int m_cursorLine = -1;
 

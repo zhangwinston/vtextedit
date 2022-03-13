@@ -1,4 +1,5 @@
 SOURCES += \
+    $$PWD/blocktextdata.cpp \
     $$PWD/codeblockhighlighter.cpp \
     $$PWD/editorpegmarkdownhighlighter.cpp \
     $$PWD/editorpreviewmgr.cpp \

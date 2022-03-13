@@ -8,19 +8,13 @@
 #include <QFont>
 #include <QPainter>
 #include <QDebug>
-#include <QPainterPath>
-#include <QRegularExpression>
-#include <vtextedit/texteditutils.h>
+
 #include <vtextedit/textblockdata.h>
 #include <vtextedit/previewdata.h>
+#include <vtextedit/blocktextata.h>
 
 #include "peghighlightblockdata.h"
 #include "documentresourcemgr.h"
-
-#define ObjectSelectionBrush (QTextFormat::ForegroundBrush + 1)
-#define SuppressText 0x5012
-#define SuppressBackground 0x513
-#define QFIXED_MAX (INT_MAX/256)
 
 using namespace vte;
 
@@ -188,336 +182,6 @@ int TextDocumentLayout::findBlockByPosition(const QPointF &p_point) const
     return 0;
 }
 
-void TextDocumentLayout::addSelectedRegionsToPath(LineInfo lineInfo,const QPointF &pos, QTextLayout::FormatRange *selection,
-                                     QPainterPath *region, const QRectF &boundingRect)
-{
-    QTextCharFormat chf;
-
-    QPointF position=pos+lineInfo.m_pline->position();
-
-    qreal range_off=0;
-    qreal range_width=0;
-
-    const bool selectionStartInLine = lineInfo.m_pline->textStart()  <= selection->start;
-    const bool selectionEndInLine = selection->start + selection->length < lineInfo.m_pline->textStart()  + lineInfo.m_pline->textLength();
-
-    QVector<RangeInfo> ranges;
-    RangeInfo result;
-
-    lineInfo.m_all_line=false;
-    if(selectionStartInLine){ //get offset before range
-        lineInfo.m_part_begin=lineInfo.m_pline->textStart();
-        lineInfo.m_part_len= selection->start-lineInfo.m_pline->textStart();
-        TextEditUtils::getRanges(lineInfo,ranges,m_cursorPosition);
-        result=TextEditUtils::getRangesWidth(ranges);
-        range_off+=result.m_visible_width;
-        m_line_visible_changed_width+=result.m_total_width-result.m_visible_width;
-        ranges.clear();
-
-        lineInfo.m_part_begin=selection->start;
-    } else{
-        lineInfo.m_part_begin=lineInfo.m_pline->textStart();
-    }
-
-    if(selectionEndInLine){// get width to range end
-        lineInfo.m_part_len=selection->start+selection->length - lineInfo.m_part_begin;
-        TextEditUtils::getRanges(lineInfo,ranges,m_cursorPosition);
-        result=TextEditUtils::getRangesWidth(ranges);
-        range_width+=result.m_visible_width;
-        m_line_visible_changed_width+=result.m_total_width-result.m_visible_width;
-        ranges.clear();
-    }else{ // get width to line end
-        lineInfo.m_part_len=lineInfo.m_pline->textStart()+lineInfo.m_pline->textLength() - lineInfo.m_part_begin;
-        TextEditUtils::getRanges(lineInfo,ranges,m_cursorPosition);
-        result=TextEditUtils::getRangesWidth(ranges);
-        range_width+=result.m_visible_width;
-        m_line_visible_changed_width+=result.m_total_width-result.m_visible_width;
-        ranges.clear();
-    }
-
-    qreal lineHeight = lineInfo.m_pline->height();
-
-    if (range_width > 0){
-        const QRectF rect = boundingRect & QRectF(position.x()+range_off, position.y(), range_width, lineHeight);
-        region->addRect(rect.toAlignedRect());
-    }
-}
-
-const QRectF clipIfValid(const QRectF &rect, const QRectF &clip)
-{
-    return clip.isValid() ? (rect & clip) : rect;
-}
-
-void setPenAndDrawBackground(QPainter *p, const QPen &defaultPen, const QTextCharFormat &chf, const QRectF &r)
-{
-    QBrush c = chf.foreground();
-    if (c.style() == Qt::NoBrush) {
-        p->setPen(defaultPen);
-    }
-
-    QBrush bg = chf.background();
-    if (bg.style() != Qt::NoBrush && !chf.property(SuppressBackground).toBool())
-        p->fillRect(r.toAlignedRect(), bg);
-    if (c.style() != Qt::NoBrush) {
-        p->setPen(QPen(c, 0));
-    }
-}
-
-void TextDocumentLayout::layoutLineDraw(LineInfo lineInfo, QPainter *p_painter,
-                                  const QPointF &pos, const QTextLayout::FormatRange *selection)
-{
-    QVector<RangeInfo> ranges;
-
-    TextEditUtils::getRanges(lineInfo, ranges,m_cursorPosition);
-
-    if (ranges.isEmpty()) {
-        return;
-    }
-
-    QTextCharFormat chf=lineInfo.m_pblock->charFormat();
-
-    if (selection) {
-        chf.merge(selection->format);
-        QPen pen = p_painter->pen();
-        setPenAndDrawBackground(p_painter, pen, chf, lineInfo.m_pline->rect());
-    }
-
-    QPointF position=pos+lineInfo.m_pline->position();
-
-    qreal width=0;
-    RangeInfo range;
-    for (int i=0;i< ranges.count();i++) {
-        range=ranges.at(i);
-
-        position.rx()+=width;
-        QTextCharFormat chf=range.m_chf;
-        if (selection) {
-            chf.merge(selection->format);
-        }
-
-        QFont f = chf.font();
-        f.resolve(QFont::AllPropertiesResolved);
-        const QFont oldFont = p_painter->font();
-        p_painter->setFont(f);
-
-        const QPen oldPen = p_painter->pen();
-        QBrush fg = chf.foreground();
-        QPen pen;
-        if (fg.style() != Qt::NoBrush) {
-            pen.setBrush(fg);
-            p_painter->setPen(pen);
-        }
-
-        QFontMetrics fm(f);
-
-        QString text;
-        if(range.visible_changed){
-            text=range.m_visible_text;
-        } else {
-            text=lineInfo.m_pblock->text().mid(range.m_start,range.m_len);
-        }
-
-        width=fm.horizontalAdvance(text);
-
-        QRectF rect(position.x(),position.y(),width,lineInfo.m_pline->height());
-        p_painter->drawText(rect, Qt::AlignVCenter, text, 0);
-
-        p_painter->setPen(oldPen);
-        p_painter->setFont(oldFont);
-    }
-}
-
-void TextDocumentLayout::layoutBlockDraw(QPainter *p, const QPointF &pos, const QVector<QTextLayout::FormatRange> &selections,
-                                         const PaintContext &p_context,QTextBlock block)
-{
-    QRectF clip=QRectF();
-    if(p_context.clip.isValid()){
-        clip=p_context.clip;
-    }
-    QTextLayout *layout=block.layout();
-
-    if(layout->lineCount()<1)
-        return;
-
-    QPointF position=pos+layout->position();
-
-    qreal clipy = (INT_MIN/256);
-    qreal clipe = (INT_MAX/256);
-
-    int firstLine = 0;
-    int lastLine = layout->lineCount();
-
-    if (clip.isValid()) {
-        clipy = clip.y() - position.y();
-        clipe = clipy + clip.height();
-    }
-    for (int i = 0; i < layout->lineCount(); ++i) {
-        QTextLine sl = layout->lineAt(i);
-        if (sl.position().y() > clipe) {
-            lastLine = i;
-            break;
-        }
-        if ((sl.position().y()+ sl.height()) < clipy) {
-            firstLine = i;
-            continue;
-        }
-    }
-    //qWarning()<<"firstLine"<<firstLine<<"lastLine"<<lastLine;
-
-    QTextOption option = document()->defaultTextOption();
-
-    QPainterPath excludedRegion;
-    QPainterPath textDoneRegion;
-
-    LineInfo lineInfo;
-    lineInfo.m_pblock=&block;
-
-    QTextLine tl;
-
-//    qWarning()<<"selections.size()"<<selections.size();
-    for (int i = 0; i < selections.size(); ++i) {
-        QTextLayout::FormatRange selection = selections.at(i);
-
-        QPainterPath region;
-        region.setFillRule(Qt::WindingFill);
-
-        for (int line = firstLine; line < lastLine; ++line) {
-            tl=layout->lineAt(line);
-
-            QRectF lineRect(tl.naturalTextRect());
-            lineRect.translate(position);
-
-            //lineRect.adjust(0, 0, d->leadingSpaceWidth(sl).toReal(), 0);
-
-            bool isLastLineInBlock = (line ==layout->lineCount()-1);
-            int sl_length = tl.textLength() + (isLastLineInBlock? 1 : 0); // the infamous newline
-
-            if (tl.textStart() > selection.start + selection.length ||tl.textStart() + sl_length <= selection.start){
-                continue; // no actual intersection
-            }
-
-            lineInfo.m_pline=&tl;
-            lineInfo.m_line_num=line;
-
-            const bool selectionStartInLine = tl.textStart()  <= selection.start;
-            const bool selectionEndInLine = selection.start + selection.length < tl.textStart()  + sl_length;
-
-            //refresh before deal with selection
-            m_line_visible_changed_width=0;
-
-            if (tl.textLength() && (selectionStartInLine || selectionEndInLine)) {
-                addSelectedRegionsToPath(lineInfo, position, &selection, &region, clipIfValid(lineRect, clip));
-            } else {
-                region.addRect(clipIfValid(lineRect, clip));
-            }
-
-            if (selection.format.boolProperty(QTextFormat::FullWidthSelection)) {
-                QRectF fullLineRect(tl.rect());
-                fullLineRect.translate(position);
-                fullLineRect.setRight(QFIXED_MAX);
-                if (!selectionEndInLine){
-                    region.addRect(clipIfValid(QRectF(lineRect.topRight(), fullLineRect.bottomRight()), clip));
-                }
-                if (!selectionStartInLine){
-                    region.addRect(clipIfValid(QRectF(fullLineRect.topLeft(), lineRect.bottomLeft()), clip));
-                }
-            } else if (!selectionEndInLine
-                && isLastLineInBlock
-                &&!(option.flags() & QTextOption::ShowLineAndParagraphSeparators)) {
-                region.addRect(clipIfValid(QRectF(lineRect.right()-m_line_visible_changed_width, lineRect.top(),
-                                                  lineRect.height()/4, lineRect.height()), clip));
-            }
-        }
-        {
-            const QPen oldPen = p->pen();
-            const QBrush oldBrush = p->brush();
-
-            p->setPen(selection.format.penProperty(QTextFormat::OutlinePen));
-            p->setBrush(selection.format.brushProperty(QTextFormat::BackgroundBrush));
-            p->drawPath(region);
-
-            p->setPen(oldPen);
-            p->setBrush(oldBrush);
-        }
-
-        bool hasText = (selection.format.foreground().style() != Qt::NoBrush);
-        bool hasBackground= (selection.format.background().style() != Qt::NoBrush);
-
-        if (hasBackground) {
-            selection.format.setProperty(ObjectSelectionBrush, selection.format.property(QTextFormat::BackgroundBrush));
-            // don't just clear the property, set an empty brush that overrides a potential
-            // background brush specified in the text
-            selection.format.setProperty(QTextFormat::BackgroundBrush, QBrush());
-            selection.format.clearProperty(QTextFormat::OutlinePen);
-        }
-
-        selection.format.setProperty(SuppressText, !hasText);
-
-        if (hasText && !hasBackground && !(textDoneRegion & region).isEmpty())
-            continue;
-
-        p->save();
-        p->setClipPath(region, Qt::IntersectClip);
-
-        for (int line = firstLine; line < lastLine; ++line) {
-            tl=layout->lineAt(line);
-            lineInfo.m_pline=&tl;
-            lineInfo.m_line_num=line;
-            lineInfo.m_all_line=true;
-            layoutLineDraw(lineInfo, p,position,&selection);
-        }
-        p->restore();
-
-        if (hasText) {
-            textDoneRegion += region;
-        } else {
-            if (hasBackground)
-                textDoneRegion -= region;
-        }
-        excludedRegion += region;
-    }
-
-    QPainterPath needsTextButNoBackground = excludedRegion - textDoneRegion;
-    if (!needsTextButNoBackground.isEmpty()){
-        p->save();
-        p->setClipPath(needsTextButNoBackground, Qt::IntersectClip);
-        QTextLayout::FormatRange selection;
-        selection.start = 0;
-        selection.length = INT_MAX;
-        selection.format.setProperty(SuppressBackground, true);
-
-        for (int line = firstLine; line < lastLine; ++line) {
-            tl=layout->lineAt(line);
-            lineInfo.m_pline=&tl;
-            lineInfo.m_line_num=line;
-            lineInfo.m_all_line=true;
-            layoutLineDraw(lineInfo, p,position,&selection);
-        }
-        p->restore();
-    }
-
-    if (!excludedRegion.isEmpty()) {
-        p->save();
-        QPainterPath path;
-        QRectF br = layout->boundingRect().translated(position);
-        br.setRight(QFIXED_MAX);
-        if (!clip.isNull())
-            br = br.intersected(clip);
-        path.addRect(br);
-        path -= excludedRegion;
-        p->setClipPath(path, Qt::IntersectClip);
-    }
-    for (int line = firstLine; line< lastLine; ++line) {
-        QTextLine tl=layout->lineAt(line);
-        lineInfo.m_pline=&tl;
-        lineInfo.m_line_num=line;
-        lineInfo.m_all_line=true;
-        layoutLineDraw(lineInfo, p,position,nullptr);
-    }
-    if (!excludedRegion.isEmpty())
-        p->restore();
-}
-
 void TextDocumentLayout::draw(QPainter *p_painter, const PaintContext &p_context)
 {
     // Find out the blocks.
@@ -565,27 +229,12 @@ void TextDocumentLayout::draw(QPainter *p_painter, const PaintContext &p_context
 
         auto selections = formatRangeFromSelection(block, p_context.selections);
 
+//modify by zhangyw for simple text display
+        //layout->draw(p_painter,offset,selections,p_context.clip.isValid() ? p_context.clip : QRectF());
 
-//        layout->draw(p_painter,offset,selections,p_context.clip.isValid() ? p_context.clip : QRectF());
-
-//add by zhangyw
-        {   //save cursor position
-            m_cursorPosition = p_context.selections.at(0).cursor.position();
-            if(p_context.selections.at(0).cursor.position()!=-1)m_cursorPosition=p_context.selections.at(0).cursor.position();
-            //Maybe QT's bug, change from view to edit mode, this value is the end of doc.
-            //correct the position, once the cursor changed, the position is normal later
-            if(p_context.selections.at(0).cursor.atEnd()!=true){
-                m_cursorErrorPosition=false;
-            }
-            if(block==document()->firstBlock()){
-                //first block error, adjust pos to real position
-                if((m_cursorErrorPosition==true) && (p_context.selections.at(0).cursor.atEnd()==true)){
-                    m_cursorPosition=0;
-                }
-            }
-        }
-        layoutBlockDraw(p_painter,offset,selections,p_context,block);
-//add by zhangyw
+        BlockTextData blockTextData(&block, p_context.selections.at(0).cursor.position());
+        blockTextData.draw(p_painter,offset,p_context,selections,document()->defaultTextOption());
+//modify by zhangyw for simple text display
 
         drawPreview(p_painter, block, offset);
 
@@ -597,7 +246,6 @@ void TextDocumentLayout::draw(QPainter *p_painter, const PaintContext &p_context
             int bllen = block.length();
             bool drawCursor = p_context.cursorPosition >= blpos
                               && p_context.cursorPosition < blpos + bllen;
-
             if (drawCursor
                 || (p_context.cursorPosition < -1
                     && !layout->preeditAreaText().isEmpty())) {
@@ -606,12 +254,14 @@ void TextDocumentLayout::draw(QPainter *p_painter, const PaintContext &p_context
                     cursorPosition = layout->preeditAreaPosition()
                                      - (p_context.cursorPosition + 2);
                 }
+
                 layout->drawCursor(p_painter,
                                    offset,
                                    cursorPosition,
                                    m_cursorWidth);
             }
         }
+
         offset.ry() += rect.height();
         if (block == lastBlock) {
             break;
@@ -659,10 +309,12 @@ QVector<QTextLayout::FormatRange> TextDocumentLayout::formatRangeFromSelection(c
             if (o.start + o.length == bllen - 1) {
                 ++o.length; // include newline
             }
+
             o.format = range.format;
             ret.append(o);
         }
     }
+
     return ret;
 }
 
@@ -1491,10 +1143,6 @@ void TextDocumentLayout::scaleSize(QSize &p_size, int p_width, int p_height)
 void TextDocumentLayout::setCursorWidth(int p_width)
 {
     m_cursorWidth = p_width;
-}
-void TextDocumentLayout::setCursorPos(int p_pos)
-{
-    m_textCursorPosition = p_pos;
 }
 
 int TextDocumentLayout::cursorWidth() const

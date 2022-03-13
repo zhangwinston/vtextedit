@@ -377,6 +377,38 @@ void VTextEdit::keyPressEvent(QKeyEvent *p_event)
     }
 }
 
+     // add by zhangyw count is zero, change disable mode to enable
+void VTextEdit::recoverInputMethodEnabled()
+{
+    if (m_leaderKeyReleaseCount <= 0 && m_navigationKeyCount <= 0 ) {
+        if(m_inputMethodDisabledAfterLeaderKey || m_navigationMode ){
+            m_inputMethodDisabledAfterLeaderKey = false;
+            m_navigationMode = false;
+            setInputMethodEnabled(true);
+        }
+    }
+}
+// add by zhangyw count is zero, change disable mode to enable
+
+
+void VTextEdit::keyReleaseEvent(QKeyEvent *p_event)
+{
+    if( m_leaderKeyReleaseCount >0) {
+        m_leaderKeyReleaseCount--;
+    }
+    if(m_leaderKeyReleaseCount<=0){
+        if( m_navigationMode ==false && m_navigationModeWithLeaderKey &&
+                m_navigationModeKeysToSkip.m_key ==p_event->key() &&
+                m_navigationModeKeysToSkip.m_modifiers ==p_event->modifiers()) {
+            m_navigationKeyCount=2;
+            m_navigationMode=true;
+        }
+    }
+    recoverInputMethodEnabled();
+
+    QTextEdit::keyReleaseEvent(p_event);
+}
+
 void VTextEdit::handleDefaultKeyPress(QKeyEvent *p_event)
 {
     const int key = p_event->key();
@@ -468,22 +500,7 @@ bool VTextEdit::eventFilter(QObject *p_obj, QEvent *p_event)
         if(m_navigationKeyCount>0){
             m_navigationKeyCount=0;
         }
-        break;
-    }
-    case QEvent::KeyRelease:
-    {
-        QKeyEvent *ke = static_cast<QKeyEvent *>(p_event);
-        if( m_leaderKeyReleaseCount >0) {
-            m_leaderKeyReleaseCount--;
-        }
-        if(m_leaderKeyReleaseCount<=0){
-            if( m_navigationMode ==false && m_navigationModeWithLeaderKey &&
-                    m_navigationModeKeysToSkip.m_key == ke->key() &&
-                    m_navigationModeKeysToSkip.m_modifiers == ke->modifiers()) {
-                m_navigationKeyCount=2;
-                m_navigationMode=true;
-            }
-        }
+        recoverInputMethodEnabled();
         break;
     }
     case QEvent::ShortcutOverride:
@@ -513,6 +530,7 @@ bool VTextEdit::eventFilter(QObject *p_obj, QEvent *p_event)
             m_navigationKeyCount--;
             break;
         }
+        recoverInputMethodEnabled();
         //add by zhangyw navigationmode keys can't deal with keyrelease, change here
 
         if (m_inputMode && m_inputMode->stealShortcut(ke)) {
@@ -526,16 +544,6 @@ bool VTextEdit::eventFilter(QObject *p_obj, QEvent *p_event)
     default:
         break;
     }
-
-    // add by zhangyw count is zero, change disable mode to enable
-    if (m_leaderKeyReleaseCount <= 0 && m_navigationKeyCount <= 0  ) {
-        if(m_inputMethodDisabledAfterLeaderKey || m_navigationMode ){
-            m_inputMethodDisabledAfterLeaderKey = false;
-            m_navigationMode = false;
-            setInputMethodEnabled(true);
-        }
-    }
-    // add by zhangyw count is zero, change disable mode to enable
 
     return QTextEdit::eventFilter(p_obj, p_event);
 }

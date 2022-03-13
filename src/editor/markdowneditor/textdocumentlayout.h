@@ -7,7 +7,6 @@
 #include <QMap>
 
 #include <vtextedit/orderedintset.h>
-#include <vtextedit/texteditutils.h>
 
 #include "textdocumentlayoutdata.h"
 
@@ -37,7 +36,6 @@ namespace vte
         QRectF blockBoundingRect(const QTextBlock &p_block) const Q_DECL_OVERRIDE;
 
         void setCursorWidth(int p_width);
-        void setCursorPos(int p_pos);
 
         int cursorWidth() const;
 
@@ -65,8 +63,6 @@ namespace vte
 
         // Request update block by block number.
         void updateBlockByNumber(int p_blockNumber);
-        // adjust line length after hide shome char
-        int adjustLinePosition(QTextLine line,int line_number, QTextBlock block);
 
     protected:
         void documentChanged(int p_from, int p_charsRemoved, int p_charsAdded) Q_DECL_OVERRIDE;
@@ -133,8 +129,6 @@ namespace vte
 
         QVector<QTextLayout::FormatRange> formatRangeFromSelection(const QTextBlock &p_block,
                                                                    const QVector<Selection> &p_selections) const;
-
-        QVector<QTextLayout::FormatRange> formatRangeFromSelection(const QTextBlock &p_block,const PaintContext &p_context)const;
 
         // Get the block range [first, last] by rect @p_rect.
         // @p_rect: a clip region in document coordinates. If null, returns all the blocks.
@@ -204,11 +198,6 @@ namespace vte
         // Width of the cursor.
         int m_cursorWidth = 1;
 
-        // position of the cursor.
-        bool m_cursorErrorPosition = true;
-        int m_cursorPosition = -1;
-        int m_textCursorPosition=-1;
-
         // Right margin for cursor.
         qreal m_cursorMargin = 4;
 
@@ -228,17 +217,6 @@ namespace vte
 
         // Padding of image preview for top and bottom.
         static const int c_imagePadding;
-
-        qreal m_line_visible_changed_width;
-
-        void addSelectedRegionsToPath(LineInfo lineInfo, const QPointF &pos, QTextLayout::FormatRange *selection,
-                                             QPainterPath *region, const QRectF &boundingRect);
-
-//        void addSelectedRegionsToPath(QTextEngine *eng, int lineNumber, const QPointF &pos, QTextLayout::FormatRange *selection,
-//                                             QPainterPath *region, QRectF &boundingRect);
-//       const QRectF clipIfValid(const QRectF &rect, const QRectF &clip);
-        void layoutLineDraw(LineInfo lineInfo, QPainter *p, const QPointF &pos, const QTextLayout::FormatRange *selection);
-        void layoutBlockDraw(QPainter *p, const QPointF &pos, const QVector<QTextLayout::FormatRange> &selections, const PaintContext &p_context,const QTextBlock block);
     };
 
 }
