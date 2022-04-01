@@ -7,8 +7,11 @@
 #include <QMap>
 
 #include <vtextedit/orderedintset.h>
-
 #include "textdocumentlayoutdata.h"
+
+#define ERRO_CURSOR_ID 0
+#define NEED_REFRESH_ID 1
+#define NO_REFRESH_ID 2
 
 namespace vte
 {
@@ -36,8 +39,10 @@ namespace vte
         QRectF blockBoundingRect(const QTextBlock &p_block) const Q_DECL_OVERRIDE;
 
         void setCursorWidth(int p_width);
+        void setCursorBlockNumber(const QTextBlock &p_block);
 
         int cursorWidth() const;
+        int cursorBlockNumber()const;
 
         qreal getLeadingSpaceOfLine() const;
         void setLeadingSpaceOfLine(qreal p_leading);
@@ -63,6 +68,9 @@ namespace vte
 
         // Request update block by block number.
         void updateBlockByNumber(int p_blockNumber);
+
+        int getRefreshId();
+        void setRefreshId(int set_id);
 
     protected:
         void documentChanged(int p_from, int p_charsRemoved, int p_charsAdded) Q_DECL_OVERRIDE;
@@ -197,6 +205,10 @@ namespace vte
 
         // Width of the cursor.
         int m_cursorWidth = 1;
+
+        int m_cursorBlockNumber=0;
+
+        int m_cursor_refresh_id=0;
 
         // Right margin for cursor.
         qreal m_cursorMargin = 4;

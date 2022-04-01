@@ -1,6 +1,7 @@
 HEADERS += \
     $$PWD/vtextedit/blocksegment.h \
     $$PWD/vtextedit/blocktextata.h \
+    $$PWD/vtextedit/blocktextdata.h \
     $$PWD/vtextedit/markdowneditorconfig.h \
     $$PWD/vtextedit/global.h \
     $$PWD/vtextedit/orderedintset.h \

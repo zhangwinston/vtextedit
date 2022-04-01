@@ -11,14 +11,14 @@
 
 #include <vtextedit/textblockdata.h>
 #include <vtextedit/previewdata.h>
-#include <vtextedit/blocktextata.h>
+#include <vtextedit/blocktextdata.h>
 
 #include "peghighlightblockdata.h"
 #include "documentresourcemgr.h"
 
 using namespace vte;
 
-const int TextDocumentLayout::c_markerThickness = 1;  //zhangyw modify from 2 to 1
+const int TextDocumentLayout::c_markerThickness = 0;  //zhangyw modify from 2 to 1
 
 const int TextDocumentLayout::c_maxInlineImageHeight = 400;
 
@@ -231,14 +231,15 @@ void TextDocumentLayout::draw(QPainter *p_painter, const PaintContext &p_context
 
 //modify by zhangyw for simple text display
         //layout->draw(p_painter,offset,selections,p_context.clip.isValid() ? p_context.clip : QRectF());
-
-        BlockTextData blockTextData(&block, p_context.selections.at(0).cursor.position());
-        blockTextData.draw(p_painter,offset,p_context,selections,document()->defaultTextOption());
+        {
+            auto linesData=BlockLinesData::get(block);
+            linesData->draw(p_painter,offset,p_context,selections,document()->defaultTextOption(),block);
+        }
 //modify by zhangyw for simple text display
 
         drawPreview(p_painter, block, offset);
 
-        drawPreviewMarker(p_painter, block, offset);
+        //drawPreviewMarker(p_painter, block, offset);
 
         // Draw the cursor.
         {
@@ -343,7 +344,7 @@ int TextDocumentLayout::hitTest(const QPointF &p_point, Qt::HitTestAccuracy p_ac
             break;
         }
     }
-
+//    qWarning()<<"block.position() + off"<<block.position() + off;
     return block.position() + off;
 }
 
@@ -641,11 +642,14 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block,
         }
     }
 
+    const auto &linesData = BlockLinesData::get(p_block);
+    linesData->initBlockRanges(m_cursorBlockNumber);
+
     p_tl->beginLayout();
 
     int imgIdx = 0;
     bool firstLine = true;
-    int line_number=0;
+    int start=0;
     while (true) {
         QTextLine line = p_tl->createLine();
         if (!line.isValid()) {
@@ -687,13 +691,17 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block,
             }
 
             if (!images.isEmpty()) {
-                p_height += imgHeight + c_markerThickness * 2 + c_imagePadding * 2;
+                //p_height += imgHeight + c_markerThickness * 2 + c_imagePadding * 2;
             }
         }
 
         line.setPosition(QPointF(m_margin, p_height));
         p_height += line.height();
-        line_number++;
+
+        start=linesData->getLineRanges(line,start,p_block);
+        if(start>=p_block.text().length()){
+            break;
+        }
     }
 
     p_tl->endLayout();
@@ -720,6 +728,7 @@ void TextDocumentLayout::layoutInlineImage(const PreviewImageData *p_data,
         scaleSize(size, p_xEnd - p_xStart, p_imageSpaceHeight);
 
         ImagePaintData ipd;
+        ipd.m_inline=true;
         ipd.m_name = p_data->m_imageName;
         ipd.m_rect = QRectF(QPointF(p_xStart,
                                     p_heightInBlock + c_imagePadding + p_imageSpaceHeight - size.height()),
@@ -746,7 +755,7 @@ void TextDocumentLayout::finishBlockLayout(const QTextBlock &p_block,
 
     bool hasImage = false;
     if (ipd.isValid()) {
-        Q_ASSERT(p_markers.isEmpty());
+        //Q_ASSERT(p_markers.isEmpty());
         Q_ASSERT(p_images.isEmpty());
         info->m_images.append(ipd);
         hasImage = true;
@@ -764,7 +773,7 @@ void TextDocumentLayout::finishBlockLayout(const QTextBlock &p_block,
         mk.m_start = QPointF(-1, 0);
         mk.m_end = QPointF(-1, info->m_rect.height());
 
-        info->m_markers.append(mk);
+        //info->m_markers.append(mk);
     }
 }
 
@@ -933,7 +942,14 @@ void TextDocumentLayout::drawPreview(QPainter *p_painter,
             p_painter->fillRect(targetRect, img.m_backgroundColor);
         }
 
-        p_painter->drawPixmap(targetRect, *image);
+        if(img.m_inline){
+            if(m_cursorBlockNumber !=p_block.blockNumber()){
+                p_painter->drawPixmap(targetRect, *image);
+            }
+
+        }else{
+            p_painter->drawPixmap(targetRect, *image);
+        }
     }
 }
 
@@ -1068,8 +1084,8 @@ qreal TextDocumentLayout::fetchInlineImagesForOneLine(const QVector<PreviewData 
                     p_index = i + 1;
                 } else {
                     // Just put a marker here.
-                    p_images.append(NULL);
-                    p_imageRange.append(QPair<qreal, qreal>(startX, endX));
+                    //p_images.append(NULL);
+                    //p_imageRange.append(QPair<qreal, qreal>(startX, endX));
                 }
 
                 break;
@@ -1093,8 +1109,8 @@ qreal TextDocumentLayout::fetchInlineImagesForOneLine(const QVector<PreviewData 
                 p_index = i + 1;
             } else {
                 // Image i has been drawn. Just put a marker here.
-                p_images.append(NULL);
-                p_imageRange.append(QPair<qreal, qreal>(startX, endX));
+                //p_images.append(NULL);
+                //p_imageRange.append(QPair<qreal, qreal>(startX, endX));
             }
 
             if (img->m_endPos >= end) {
@@ -1148,6 +1164,30 @@ void TextDocumentLayout::setCursorWidth(int p_width)
 int TextDocumentLayout::cursorWidth() const
 {
     return m_cursorWidth;
+}
+
+void TextDocumentLayout::setCursorBlockNumber(const QTextBlock &p_block)
+{
+    int pre_blockNumber=m_cursorBlockNumber;
+    QTextBlock pre_block=document()->findBlockByNumber(pre_blockNumber);
+    m_cursorBlockNumber=p_block.blockNumber();
+
+    if(pre_blockNumber<m_cursorBlockNumber){
+        if(pre_block.isValid()){
+            layoutBlockAndUpdateOffset(pre_block);
+        }
+        layoutBlockAndUpdateOffset(p_block);
+    }else{
+        layoutBlockAndUpdateOffset(p_block);
+        if(pre_block.isValid()){
+            layoutBlockAndUpdateOffset(pre_block);
+        }
+    }
+}
+
+int TextDocumentLayout::cursorBlockNumber()const
+{
+    return    m_cursorBlockNumber;
 }
 
 void TextDocumentLayout::layoutBlockAndUpdateOffset(const QTextBlock &p_block)
@@ -1214,4 +1254,12 @@ void TextDocumentLayout::setLeadingSpaceOfCodeBlockFactor(qreal p_leading_space_
 bool TextDocumentLayout::shouldBlockWrapLine(const QTextBlock &p_block) const
 {
     return PegHighlightBlockData::get(p_block)->getWrapLineEnabled();
+}
+int TextDocumentLayout::getRefreshId()
+{
+    return m_cursor_refresh_id;
+}
+void TextDocumentLayout::setRefreshId(int set_id)
+{
+    m_cursor_refresh_id=set_id;
 }
