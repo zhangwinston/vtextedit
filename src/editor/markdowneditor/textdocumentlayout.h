@@ -9,10 +9,6 @@
 #include <vtextedit/orderedintset.h>
 #include "textdocumentlayoutdata.h"
 
-#define ERRO_CURSOR_ID 0
-#define NEED_REFRESH_ID 1
-#define NO_REFRESH_ID 2
-
 namespace vte
 {
     class DocumentResourceMgr;
@@ -68,9 +64,6 @@ namespace vte
 
         // Request update block by block number.
         void updateBlockByNumber(int p_blockNumber);
-
-        int getRefreshId();
-        void setRefreshId(int set_id);
 
     protected:
         void documentChanged(int p_from, int p_charsRemoved, int p_charsAdded) Q_DECL_OVERRIDE;

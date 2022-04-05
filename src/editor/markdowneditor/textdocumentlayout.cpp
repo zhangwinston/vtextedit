@@ -534,6 +534,7 @@ void TextDocumentLayout::layoutBlock(const QTextBlock &p_block)
     if (availableWidth <= 0 || !shouldBlockWrapLine(p_block)) {
         availableWidth = qreal(INT_MAX);
     }
+//    qWarning()<<"layoutblock: doc->pagesize"<<doc->pageSize()<<"doc characterCount"<<document()->characterCount()<<"block number"<<p_block.blockNumber();
 
     availableWidth -= (2 * m_margin + extraMargin + m_cursorMargin + m_cursorWidth);
 
@@ -640,8 +641,8 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block,
     }
 
     const auto &linesData = BlockLinesData::get(p_block);
-    linesData->initBlockRanges(m_cursorBlockNumber,p_block);
-    if(m_cursorBlockNumber!=p_block.blockNumber()){
+    if(m_cursorBlockNumber!=p_block.blockNumber()&&document()->characterCount()>1&&document()->pageSize().width()>100){
+        linesData->initBlockRanges(m_cursorBlockNumber,p_block);
         linesData->getBlockRanges(p_block);
     }
 
@@ -663,7 +664,7 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block,
         if(firstLine==true){
             firstLine=false;
             auto preBlk = p_block.previous();
-            if(preBlk.isValid()&&preBlk.length()>1&&(p_block.length()>1||m_cursorBlockNumber==p_block.blockNumber())){
+            if(preBlk.isValid()&&preBlk.length()>1&&(p_block.length()>1)){
                p_height += m_leadingSpaceOfLine;
             }
         }else{
@@ -701,7 +702,7 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block,
         line.setPosition(QPointF(m_margin, p_height));
         p_height += line.height();
 
-        if(m_cursorBlockNumber!=p_block.blockNumber()){
+        if(m_cursorBlockNumber!=p_block.blockNumber()&&document()->characterCount()>1&&document()->pageSize().width()>100){
             start=linesData->getLineRanges(line,start,p_block);
             if(start>=p_block.text().length()){
                 break;
@@ -1251,12 +1252,4 @@ void TextDocumentLayout::setLeadingSpaceOfCodeBlockFactor(qreal p_leading_space_
 bool TextDocumentLayout::shouldBlockWrapLine(const QTextBlock &p_block) const
 {
     return PegHighlightBlockData::get(p_block)->getWrapLineEnabled();
-}
-int TextDocumentLayout::getRefreshId()
-{
-    return m_cursor_refresh_id;
-}
-void TextDocumentLayout::setRefreshId(int set_id)
-{
-    m_cursor_refresh_id=set_id;
 }
