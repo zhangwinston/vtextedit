@@ -506,10 +506,6 @@ void TextDocumentLayout::layoutBlock(const QTextBlock &p_block)
     } else {
         setLeadingSpaceOfLine(QFontMetrics((p_block.charFormat()).font()).height()*m_leadingSpaceOfCodeBlockFactor);
     }
-
-    if(p_block.length()<=1 && p_block.next().isValid() ){
-        setLeadingSpaceOfLine(0);
-    }
     //zhangyw add space for lines/codeblock
 
     {
@@ -663,15 +659,15 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block,
         // Will introduce extra space on macOS.
         // line.setLeadingIncluded(true);
         line.setLineWidth(p_availableWidth);
-        p_height += m_leadingSpaceOfLine;
 
         if(firstLine==true){
             firstLine=false;
             auto preBlk = p_block.previous();
-            if(preBlk.isValid()==false || preBlk.length()<=1)
-            {
-                p_height -= m_leadingSpaceOfLine;
+            if(preBlk.isValid()&&preBlk.length()>1&&(p_block.length()>1||m_cursorBlockNumber==p_block.blockNumber())){
+               p_height += m_leadingSpaceOfLine;
             }
+        }else{
+            p_height += m_leadingSpaceOfLine;
         }
 
         if (pPreviewData) {
