@@ -230,8 +230,9 @@ void TextDocumentLayout::draw(QPainter *p_painter, const PaintContext &p_context
         auto selections = formatRangeFromSelection(block, p_context.selections);
 
 //modify by zhangyw for simple text display
-        //layout->draw(p_painter,offset,selections,p_context.clip.isValid() ? p_context.clip : QRectF());
-        {
+        if(m_cursorBlockNumber==block.blockNumber()){
+            layout->draw(p_painter,offset,selections,p_context.clip.isValid() ? p_context.clip : QRectF());
+        }else{
             auto linesData=BlockLinesData::get(block);
             linesData->draw(p_painter,offset,p_context,selections,document()->defaultTextOption(),block);
         }
@@ -643,7 +644,10 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block,
     }
 
     const auto &linesData = BlockLinesData::get(p_block);
-    linesData->initBlockRanges(m_cursorBlockNumber);
+    linesData->initBlockRanges(m_cursorBlockNumber,p_block);
+    if(m_cursorBlockNumber!=p_block.blockNumber()){
+        linesData->getBlockRanges(p_block);
+    }
 
     p_tl->beginLayout();
 
@@ -691,17 +695,22 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block,
             }
 
             if (!images.isEmpty()) {
-                //p_height += imgHeight + c_markerThickness * 2 + c_imagePadding * 2;
+
+                if(m_cursorBlockNumber==p_block.blockNumber()){
+                    p_height += imgHeight + c_markerThickness * 2 + c_imagePadding * 2;
+                }
             }
         }
 
         line.setPosition(QPointF(m_margin, p_height));
         p_height += line.height();
 
-        start=linesData->getLineRanges(line,start,p_block);
-        if(start>=p_block.text().length()){
-            break;
-        }
+        if(m_cursorBlockNumber!=p_block.blockNumber()){
+            start=linesData->getLineRanges(line,start,p_block);
+            if(start>=p_block.text().length()){
+                break;
+            }
+         }
     }
 
     p_tl->endLayout();
@@ -728,7 +737,6 @@ void TextDocumentLayout::layoutInlineImage(const PreviewImageData *p_data,
         scaleSize(size, p_xEnd - p_xStart, p_imageSpaceHeight);
 
         ImagePaintData ipd;
-        ipd.m_inline=true;
         ipd.m_name = p_data->m_imageName;
         ipd.m_rect = QRectF(QPointF(p_xStart,
                                     p_heightInBlock + c_imagePadding + p_imageSpaceHeight - size.height()),
@@ -942,14 +950,7 @@ void TextDocumentLayout::drawPreview(QPainter *p_painter,
             p_painter->fillRect(targetRect, img.m_backgroundColor);
         }
 
-        if(img.m_inline){
-            if(m_cursorBlockNumber !=p_block.blockNumber()){
-                p_painter->drawPixmap(targetRect, *image);
-            }
-
-        }else{
-            p_painter->drawPixmap(targetRect, *image);
-        }
+        p_painter->drawPixmap(targetRect, *image);
     }
 }
 

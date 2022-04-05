@@ -27,8 +27,6 @@ namespace vte
         // Name of the image.
         QString m_name;
 
-        bool m_inline;
-
         // Forced background if valid.
         QColor m_backgroundColor;
 
