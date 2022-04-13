@@ -12,6 +12,12 @@
 
 class QTextBlock;
 
+namespace Sonnet
+{
+    class Speller;
+    class WordTokenizer;
+}
+
 namespace vte
 {
     struct RangeInfo
@@ -22,7 +28,7 @@ namespace vte
         //text of visible part
         QString m_text_changed;
         //width of visible part
-        qreal m_width_changed=0;
+        qreal m_width=0;
 
         //tab or not
         bool m_is_tab=false;
@@ -47,7 +53,7 @@ namespace vte
     {
         QTextLine m_tl;
 
-        qreal m_width_visible=0;
+        qreal m_width=0;
 
         int m_start_new;
         int m_len_new;
@@ -56,7 +62,7 @@ namespace vte
 
         LineInfo(QTextLine tl){
             m_tl=tl;
-            m_width_visible=0;
+            m_width=0;
         }
     };
 
@@ -64,26 +70,27 @@ namespace vte
     {
     public:
 
-        BlockLinesData() = default;
+        BlockLinesData()=default;
         //BlockLinesData(const QTextBlock* pblock,int cursorPosition);
 
         ~BlockLinesData();
 
-
         static QSharedPointer<BlockLinesData> get(const QTextBlock &p_block);
-
 
         void draw(QPainter *p, const QPointF &pos,const QAbstractTextDocumentLayout::PaintContext &p_context, const QVector<QTextLayout::FormatRange> &selections,QTextOption option, QTextBlock &pblock);
         void initBlockRanges(int cursorBlockNumber,const QTextBlock& pblock);
         void getBlockRanges(const QTextBlock& pblock);
         int getLineRanges(const QTextLine line,int start,const QTextBlock& pblock);
 
+        void getSuitableWidth();
+        
     private:
 
         bool m_cursorBlock;
         QVector<LineInfo> m_lines;
         QVector<RangeInfo> m_blockPreRanges;
         QVector<RangeInfo> m_blockRanges;
+
 
         //total lines width changed in block
 
@@ -92,13 +99,19 @@ namespace vte
         RangeInfo getRangesWidth(LineInfo* li, int start ,int len,const QTextBlock& pblock);
 
         void processBlockText(const QTextBlock& block);
-        void rangeWithTabsAppend(RangeInfo* range, const QTextBlock& pblock);
-        void rangeAppend(RangeInfo* range,const QTextBlock& pblock);
-        static qreal getTextWidth(const QTextCharFormat chf, QString text);
+        void rangeAppend(RangeInfo& range, const QTextBlock& pblock);
+        void rangeAppendWithFmt(RangeInfo& range);
+        void rangeProcessFontStyle(const QTextBlock& pblock);
+        void rangeRemoveFontStyle(int idx, QString sign_str,RangeInfo& range,const QTextBlock& block);
+        void rangeProcessWidth(const QTextBlock& pblock);
         static const QRectF clipIfValid(const QRectF &rect, const QRectF &clip);
         void addSelectedRegionsToPath(LineInfo* li,const QPointF &pos, QTextLayout::FormatRange *selection,
                                       QPainterPath *region, const QRectF &boundingRect,
                                       bool selectionStartInLine, bool selectionEndInLine,const QTextBlock& pblock);
+
+        void getSuitableWidth(qreal distance,qreal& width,int& pos,RangeInfo& range, const QTextBlock& block);
+        bool posInWord(int& pos,int& tokenizer_len, Sonnet::WordTokenizer& wordTokenizer);
+        bool atWordSeparator(int&pos, QString &text);
     };
 
 }

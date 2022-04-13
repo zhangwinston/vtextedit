@@ -8,6 +8,9 @@
 #include <QTextBlock>
 #include <QDebug>
 #include <QtAlgorithms>
+#include <speller.h>
+#include <tokenizer_p.h>
+#include <QTimer>
 
 #define ObjectSelectionBrush (QTextFormat::ForegroundBrush + 1)
 #define SuppressText 0x5012
@@ -15,6 +18,25 @@
 #define QFIXED_MAX (INT_MAX/256)
 
 using namespace vte;
+
+void print_range(QString tip, RangeInfo range, const QTextBlock& block)
+{
+     qWarning()<<tip<<range.m_start<<range.m_len<<range.m_width \
+              <<range.m_processId<<range.m_is_tab<<block.text().mid(range.m_start,range.m_len);
+}
+
+void print_ranges(QString tip,QVector<RangeInfo> &ranges,const QTextBlock& block)
+{
+    qWarning()<<tip;
+    for (int i = 0; i < ranges.size(); ++i) {
+        print_range(QVariant(i).toString(),ranges.at(i),block);
+    }
+}
+
+void print_chfRange(int index, QTextLayout::FormatRange &chf_range, const QTextBlock& block)
+{
+    qWarning()<<"fmt"<<index<<block.text().mid(chf_range.start,chf_range.length)<<"format"<<chf_range.format;
+}
 
 BlockLinesData::~BlockLinesData(){
     if(!m_lines.isEmpty()){
@@ -67,23 +89,28 @@ void BlockLinesData::processBlockText(const QTextBlock& block)
 
     if(!m_cursorBlock){
 
-        //code block replace "```"
-        re.setPattern("^(`{3}\\S*)$");
-        match = re.match(block.text());
-        if(match.hasMatch()) {
-            RangeInfo ri;
-            ri.m_processId=REPLACED_ID;
-            ri.m_start = match.capturedStart(1);
-            ri.m_len = match.capturedEnd(1)-ri.m_start;
-            ri.m_text_changed=R"(▔▔▔▔)";
-            m_blockPreRanges.push_back(ri);
+        QString block_text=block.text();
+
+//        qWarning()<<"block number"<<block.blockNumber()<<"userstate"<<block.userState()<<block_text;
+
+        if(block.userState()>=0){ //code block start, code block, code end
+            //code block replace "```"
+            re.setPattern("^(`{3}\\S*)$");
+            match = re.match(block_text);
+            if(match.hasMatch()) {
+                RangeInfo ri;
+                ri.m_processId=REPLACED_ID;
+                ri.m_start = match.capturedStart(1);
+                ri.m_len = match.capturedEnd(1)-ri.m_start;
+                ri.m_text_changed="_";
+                m_blockPreRanges.push_back(ri);
+            }
         }
 
-        if(block.userState()==-1){ //not code block
-
+        if(block.userState()<0){ //not code block
             // heading line remove "# " in first line of block
             re.setPattern("^(#+ +)");
-            match = re.match(block.text());
+            match = re.match(block_text);
             if(match.hasMatch()){
                 RangeInfo ri;
                 ri.m_processId=REMOVED_ID;
@@ -92,22 +119,64 @@ void BlockLinesData::processBlockText(const QTextBlock& block)
                 m_blockPreRanges.push_back(ri);
             }
 
-            //hide url
-            re.setPattern("\\[\\S*\\](\\([\\s\\S]+?\\))");
-            matchi = re.globalMatch(block.text());
-            while (matchi.hasNext()) {
-                QRegularExpressionMatch match = matchi.next();
-
+            // sperate lineith "***" in first line of block
+            re.setPattern("^([*-]{3,})$");
+            match = re.match(block_text);
+            if(match.hasMatch()){
                 RangeInfo ri;
-                ri.m_processId=REMOVED_ID;
+                ri.m_processId=REPLACED_ID;
                 ri.m_start = match.capturedStart(1);
                 ri.m_len = match.capturedEnd(1)-ri.m_start;
+                ri.m_text_changed="_";
                 m_blockPreRanges.push_back(ri);
+            }
+
+            // ulist with "* " in line
+//            re.setPattern("^(\\* ).+$");
+//            match = re.match(block_text);
+//            if(match.hasMatch()){
+//                RangeInfo ri;
+//                ri.m_processId=REPLACED_ID;
+//                ri.m_start = match.capturedStart(1);
+//                ri.m_len = match.capturedEnd(1)-ri.m_start;
+//                ri.m_text_changed="•";
+//                m_blockPreRanges.push_back(ri);
+//                block_text=block_text.replace(ri.m_start,ri.m_len,blankStr.constData(),ri.m_len);
+//            }
+
+            //hide url/image file path
+            //re.setPattern("(\\[.*?\\])(\\((?:[^\\(\\)]+|(?R))*+\\))");
+            re.setPattern("(\\[.*?\\]\\()");
+            matchi = re.globalMatch(block_text);
+            while (matchi.hasNext()) {
+                QRegularExpressionMatch match = matchi.next();
+                int start=match.capturedEnd();
+                int match_count = 1;
+                int pos=start;
+                // Traverse the input string
+                for (; pos < block_text.length(); pos++){
+                    if (block_text[pos] == '('){
+                        match_count++;
+                    }
+                    else if (block_text[pos] == ')'){
+                        if (match_count > 0)
+                            match_count--;
+                        if(match_count==0)
+                            break;
+                    }
+                }
+                if(match_count==0){
+                    RangeInfo ri;
+                    ri.m_processId=REMOVED_ID;
+                    ri.m_start = start-1;
+                    ri.m_len = pos-ri.m_start+1;
+                    m_blockPreRanges.push_back(ri);
+                }
             }
 
             //code inline remove "`"
             re.setPattern("[^\\\\]{0,1}(`)");
-            matchi = re.globalMatch(block.text());
+            matchi = re.globalMatch(block_text);
             while (matchi.hasNext()) {
                 QRegularExpressionMatch match = matchi.next();
 
@@ -118,60 +187,10 @@ void BlockLinesData::processBlockText(const QTextBlock& block)
                 m_blockPreRanges.push_back(ri);
             }
 
-            //bold string remove "*, **, ***"
-            re.setPattern("(\\*{1,3})[^\\\\]+?[^\\\\]?(\\*{1,3})");
-            matchi = re.globalMatch(block.text());
-            while (matchi.hasNext()) {
-                QRegularExpressionMatch match = matchi.next();
-
-                RangeInfo ri;
-                ri.m_processId=REMOVED_ID;
-                ri.m_start = match.capturedStart(1);
-                ri.m_len = match.capturedEnd(1)-ri.m_start;
-                m_blockPreRanges.push_back(ri);
-
-                ri.m_processId=REMOVED_ID;
-                ri.m_start = match.capturedStart(2);
-                ri.m_len = match.capturedEnd(2)-ri.m_start;
-                m_blockPreRanges.push_back(ri);
-            }
-
-            //bold string remove "_, __, ___"
-            re.setPattern("(\\_{1,3})[^\\\\]+?[^\\\\]?(\\_{1,3})");
-            matchi = re.globalMatch(block.text());
-            while (matchi.hasNext()) {
-                QRegularExpressionMatch match = matchi.next();
-
-                RangeInfo ri;
-                ri.m_processId=REMOVED_ID;
-                ri.m_start = match.capturedStart(1);
-                ri.m_len = match.capturedEnd(1)-ri.m_start;
-                m_blockPreRanges.push_back(ri);
-
-                ri.m_processId=REMOVED_ID;
-                ri.m_start = match.capturedStart(2);
-                ri.m_len = match.capturedEnd(2)-ri.m_start;
-                m_blockPreRanges.push_back(ri);
-            }
-
-
-            //strik string remove "~~"
-            re.setPattern("~~");
-            matchi = re.globalMatch(block.text());
-            while (matchi.hasNext()) {
-                QRegularExpressionMatch match = matchi.next();
-
-                RangeInfo ri;
-                ri.m_processId=REMOVED_ID;
-                ri.m_start = match.capturedStart(1);
-                ri.m_len = match.capturedEnd(1)-ri.m_start;
-                m_blockPreRanges.push_back(ri);
-            }
-
-            //strik string hide math expression"\$(\S+)\$"
+            //hide math expression"\$(\S+)\$"
             re.setPattern("(\\$\\S+\\$)");
             re.setPatternOptions(QRegularExpression::DotMatchesEverythingOption | QRegularExpression::InvertedGreedinessOption);
-            matchi = re.globalMatch(block.text());
+            matchi = re.globalMatch(block_text);
             while (matchi.hasNext()) {
                 QRegularExpressionMatch match = matchi.next();
 
@@ -185,9 +204,7 @@ void BlockLinesData::processBlockText(const QTextBlock& block)
     }
     std::sort(m_blockPreRanges.begin(),m_blockPreRanges.end());
 
-    //    for (int i = 0; i < m_blockPreRanges.size(); ++i) {
-    //        qWarning()<< "m_blockPreRanges"<<i<<"text"<<block.text().mid(m_blockPreRanges.at(i).m_start,m_blockPreRanges.at(i).m_len)<<"processId"<<m_blockPreRanges.at(i).m_processId <<"m_start"<< m_blockPreRanges.at(i).m_start<<"m_len"<<m_blockPreRanges.at(i).m_len;
-    //    }
+//    print_ranges("block prepare ranges",m_blockPreRanges,block);
 }
 
 void BlockLinesData::getBlockRanges(const QTextBlock& block)
@@ -208,8 +225,9 @@ void BlockLinesData::getBlockRanges(const QTextBlock& block)
         range_get_fmt=false;
 
         for(int idx=0; idx <fmt.size(); idx++){
-            auto fmt_start=fmt.at(idx).start;
-            auto fmt_end=fmt_start+fmt.at(idx).length;
+            auto chf_range=fmt.at(idx);
+            auto fmt_start=chf_range.start;
+            auto fmt_end=fmt_start+chf_range.length;
 
             if(fmt_end <= range_start ||range_end <= fmt_start){ //fmt before range
                 continue;
@@ -217,7 +235,6 @@ void BlockLinesData::getBlockRanges(const QTextBlock& block)
                 range_get_fmt=true;
 
                 RangeInfo range;
-
                 range.m_chf = fmt.at(idx).format;
                 range.m_start=range_start;
 
@@ -227,7 +244,7 @@ void BlockLinesData::getBlockRanges(const QTextBlock& block)
                 }
                 range.m_len=range_end-range_start;
 
-                rangeWithTabsAppend(&range,block);
+                rangeAppend(range,block);
                 break;
             } else if(range_start < fmt_start && fmt_start < range_end){//fmt start between range, or range contain fmt
                 range_end=fmt_start; //adjust range, look for matched fmt.
@@ -241,13 +258,100 @@ void BlockLinesData::getBlockRanges(const QTextBlock& block)
             range.m_start=range_start;
             range.m_len=range_end-range_start;
 
-            rangeWithTabsAppend(&range,block);
+            rangeAppend(range,block);
         }
     }
+    std::sort(m_blockRanges.begin(),m_blockRanges.end());
 
-    //        for (int i = 0; i < m_blockRanges.size(); ++i) {
-    //            qWarning()<< "m_blockRanges"<<i<<"processId"<<m_blockRanges.at(i).m_processId<<"m_start"<< m_blockRanges.at(i).m_start<<"m_len"<<m_blockRanges.at(i).m_len<<"text"<<block.text().mid(m_blockRanges.at(i).m_start,m_blockRanges.at(i).m_len);
-    //        }
+    if(block.userState()<0){ //normal text
+        rangeProcessFontStyle(block); //removed range font style sign, **/*/~~
+    }
+
+    rangeProcessWidth(block);
+
+//    print_ranges("block ranges",m_blockRanges,block);
+}
+
+bool BlockLinesData::posInWord(int& pos,int& tokenizer_len,Sonnet::WordTokenizer& wordTokenizer)
+{
+    QStringRef w;
+    bool inWord=false;
+    while (wordTokenizer.hasNext()) {
+        w = wordTokenizer.next();
+        if(pos>(w.position()+w.length())) //after a word
+            continue;
+
+        if(w.position()< pos &&pos<(w.position()+w.length())){ //in a word
+            tokenizer_len=w.position(); //for next loop
+            pos=tokenizer_len;
+            inWord=true;
+            break;
+        }
+
+        if(pos<(w.position())){ //before a word, adjust to nearest word for next find loop
+            tokenizer_len=w.position();
+            break;
+        }
+    }
+    return inWord;
+}
+
+void BlockLinesData::getSuitableWidth(qreal distance,qreal& width,int& pos,RangeInfo& range, const QTextBlock& block)
+{
+    QFontMetrics fm(range.m_chf.font());
+
+    QString range_text=block.text().mid(range.m_start,range.m_len);
+    qreal average_width=range.m_width/range.m_len;
+    int estimated_len=distance/average_width+1;
+
+//    qWarning()<<"range text"<<range_text;
+
+    //get the right length
+    qreal gap=distance-width;
+    while(gap>0 && estimated_len>0){
+        pos+=estimated_len;
+        if(pos>range.m_len){
+            pos=range.m_len;
+            break;
+        }else if(pos<=0){
+            break;
+        }
+
+        if(range.m_processId==REPLACED_ID){
+            width=fm.horizontalAdvance(range.m_text_changed.mid(0,pos));
+        }else{
+            width=fm.horizontalAdvance(range_text.mid(0,pos));
+        }
+        gap=distance-width;
+        estimated_len=gap/average_width+1;
+    }
+//    qWarning()<<"estimated_len"<<estimated_len<<"gap"<<gap<<"distance"<<distance<<"width"<<width;
+
+    int tokenizer_len=range.m_len;
+    Sonnet::WordTokenizer wordTokenizer;
+    wordTokenizer.setBuffer(range_text);
+
+    //get the right break position, avoid word or separator
+    for(int i=pos;i>=1;i--){
+        while(i>1 && atWordSeparator(i,range_text)){
+            i--;
+        }
+        wordTokenizer.setBuffer(range_text.mid(0,tokenizer_len));
+        posInWord(i,tokenizer_len, wordTokenizer);
+
+        pos=i;
+        if(i<=0){
+            break; //at start of range, add nothing
+        }
+        if(range.m_processId==REPLACED_ID){
+            width=fm.horizontalAdvance(range.m_text_changed.mid(0,i));
+        }else{
+            width=fm.horizontalAdvance(range_text.mid(0,i));
+        }
+        if(width <= distance){
+            break;
+        }
+    }
 }
 
 int BlockLinesData::getLineRanges(const QTextLine line,int start,const QTextBlock& block)
@@ -260,120 +364,117 @@ int BlockLinesData::getLineRanges(const QTextLine line,int start,const QTextBloc
     qreal distance=0;
 
     for (int idx = 0; idx < m_blockRanges.size(); ++idx) {
-        //for(auto &range:m_blockRanges){
         auto &range=m_blockRanges[idx];
+
+//        print_range("satrt "+QVariant(start).toString()+" "+QVariant(idx).toString(),m_blockRanges.at(idx),block);
 
         if(range.m_start<start)continue;
 
-        if(li.m_ranges.count()==0 && range.m_start>start){
-            qWarning()<< "GetLineRanges: Must be equal--- range.m_start";
-            qWarning()<<"i="<<idx<<range.m_is_tab<<range.m_start<<range.m_len<<range.m_width_changed<<range.m_processId<<block.text().mid(range.m_start,range.m_len);
+        if(li.m_ranges.count()==0 && (range.m_start>start)){
+            qWarning()<< "getLineRanges: li.m_ranges.count()==0 && start!=range.m_start" <<li.m_ranges.count()<<"start"<<range.m_start<<"i"<<idx;
+            print_ranges("block ranges",m_blockRanges,block);
         }
 
-        distance=li.m_tl.width()-li.m_width_visible;
-        //            qWarning()<< "li.m_tl.width"<<li.m_tl.width()<<"li.m_width_visible"<<li.m_width_visible;
+        distance=li.m_tl.width()-li.m_width;
 
+        if(range.m_processId==REPLACED_ID && range.m_text_changed=="_"){
+            int count=distance/range.m_width;
+            range.m_text_changed=range.m_text_changed.fill('_',count);
+            range.m_width=count*range.m_width;
+            if(li.m_ranges.count()==0){
+                li.m_start_new=range.m_start;
+            }
+            li.m_len_new+=range.m_len;
+            li.m_width+=range.m_width;
+            li.m_ranges.append(range);
+            break;
+        }
         //set tab width with lineinfo
         if(range.m_is_tab==true){
             qreal tab =block.layout()->textOption().tabStopDistance();
             if (tab <= 0)
                 tab = 80; // default
-            range.m_width_changed=(floor(li.m_width_visible/tab)+1)*tab-li.m_width_visible;
+            range.m_width=(floor(li.m_width/tab)+1)*tab-li.m_width;
         }
         //add total range
-        if(range.m_width_changed < distance){
+        if(range.m_width <= distance){
             if(li.m_ranges.count()==0){
                 li.m_start_new=range.m_start;
             }
             li.m_len_new+=range.m_len;
-            li.m_width_visible+=range.m_width_changed;
+            li.m_width+=range.m_width;
             li.m_ranges.append(range);
             continue;
         }
         //add part of range
         if(range.m_processId!=BLANKED_ID)
         {
-            int start=distance/(range.m_width_changed/range.m_len);
-            for(int j=start;j>=1 ;j--){
+            QFontMetrics fm(range.m_chf.font());
+            int pos=0;
+            qreal width=0;
+
+            getSuitableWidth(distance,width,pos,range,block);
+
+            if(width <= distance){
                 RangeInfo ri;
                 ri.m_chf =range.m_chf;
                 ri.m_start=range.m_start;
-                ri.m_len=j;
-                if(range.m_processId==REPLACED_ID){
-                    ri.m_width_changed=getTextWidth(ri.m_chf,ri.m_text_changed.mid(0,ri.m_len));
-                }else{
-                    ri.m_width_changed=getTextWidth(ri.m_chf,block.text().mid(ri.m_start,ri.m_len));
+                ri.m_len=pos;
+                ri.m_width=width;
+
+                //add forward part of range
+                if(li.m_ranges.count()==0){
+                    li.m_start_new=ri.m_start;
                 }
-                if(ri.m_width_changed < distance){
-                    //add forward part of range
-                    if(li.m_ranges.count()==0){
-                        li.m_start_new=ri.m_start;
-                    }
-                    li.m_len_new+=ri.m_len;
-                    li.m_width_visible+=ri.m_width_changed;
-                    li.m_ranges.append(ri);
+                li.m_len_new+=ri.m_len;
+                li.m_width+=ri.m_width;
+                li.m_ranges.append(ri);
 
-                    m_blockRanges.insert(idx,ri);
-                    idx++;
+                m_blockRanges.insert(idx,ri);
+                idx++;
 
-                    auto &new_range=m_blockRanges[idx];
+                auto &new_range=m_blockRanges[idx];
 
-                    new_range.m_start=ri.m_start+ri.m_len;
-                    new_range.m_len=new_range.m_len-ri.m_len;
+                new_range.m_start=ri.m_start+ri.m_len;
+                new_range.m_len=new_range.m_len-ri.m_len;
 
-                    if(new_range.m_processId==REPLACED_ID){
-                        new_range.m_text_changed=ri.m_text_changed.mid(ri.m_len,ri.m_text_changed.length()-ri.m_len);
-                        new_range.m_width_changed=getTextWidth(ri.m_chf,new_range.m_text_changed);
-                    }else{
-                        new_range.m_width_changed=getTextWidth(ri.m_chf,block.text().mid(new_range.m_start,new_range.m_len));
-                    }
-                    break;
+                if(new_range.m_processId==REPLACED_ID){
+                    new_range.m_text_changed=range.m_text_changed.mid(ri.m_len,ri.m_text_changed.length()-ri.m_len);
+                    new_range.m_width=fm.horizontalAdvance(new_range.m_text_changed);
+                }else{
+                    new_range.m_width=fm.horizontalAdvance(block.text().mid(range.m_start+ri.m_len,new_range.m_len));
                 }
             }
+//            if(width > distance){
+//                qWarning()<<"ERROR! width"<<width<<"distance"<<distance<<"pos"<<pos<<"idx"<<idx<<block.text().mid(range.m_start,range.m_len);
+//                print_ranges("block ranges",m_blockRanges,block);
+//                print_ranges(QStringLiteral("line number %1").arg(li.m_tl.lineNumber()),li.m_ranges,block);
+//            }
+            //the range not suitable for this line,so let's go
+            break;
         }
-        break; //give up
     }
-
     m_lines.append(li);
 
-    //        qWarning()<<"LineInfo number"<<li.m_tl.lineNumber();
-    //        for (int i=0;i< li.m_ranges.count();i++) {
-    //            RangeInfo range=li.m_ranges.at(i);
-    //            qWarning()<<"   ri"<<i<<range.m_is_tab<<range.m_start<<range.m_len<<range.m_width_changed<<range.m_processId<<block.text().mid(range.m_start,range.m_len);
-    //        }
-
-    //        qWarning()<<"m_blockRanges after get line"<<m_blockRanges.count();
-    //        for (int i = 0; i < m_blockRanges.count(); i++) {
-    //            RangeInfo pri=m_blockRanges.at(i);
-    //            qWarning()<<"   i="<<i<<pri.m_is_tab<<pri.m_start<<pri.m_len<<pri.m_width_changed<<pri.m_processId<<block.text().mid(pri.m_start,pri.m_len);
-    //        }
+    //    print_ranges(QStringLiteral("line number %1").arg(li.m_tl.lineNumber()),li.m_ranges,block);
 
     return li.m_start_new+li.m_len_new;
 }
 
-
-qreal BlockLinesData::getTextWidth(const QTextCharFormat chf, QString text)
+void BlockLinesData::rangeAppend(RangeInfo& range, const QTextBlock& block)
 {
-    QFont f = chf.font();
-    QFontMetrics fm(f);
-    return fm.horizontalAdvance(text);
-}
-
-void BlockLinesData::rangeWithTabsAppend(RangeInfo* range, const QTextBlock& block)
-{
-    if(range->m_len==0){ //blank block
+    if(range.m_len==0){ //blank block
         RangeInfo ri;
-        ri.m_start=range->m_start;
-        ri.m_len=range->m_len;
-        ri.m_chf=range->m_chf;
+        ri.m_start=range.m_start;
+        ri.m_len=range.m_len;
+        ri.m_chf=range.m_chf;
         ri.m_processId=UNCHANGED_ID;
-        ri.m_width_changed=0;
+        ri.m_width=0;
         m_blockRanges.append(ri);
         return;
     }
-
     //deal with tabs
-    QString range_text=block.text().mid(range->m_start,range->m_len);
+    QString range_text=block.text().mid(range.m_start,range.m_len);
 
     int index = 0;
     int start_pos=0;
@@ -381,43 +482,38 @@ void BlockLinesData::rangeWithTabsAppend(RangeInfo* range, const QTextBlock& blo
         if(index>start_pos)
         {
             RangeInfo ri;
-            ri.m_chf=range->m_chf;
-            ri.m_start=range->m_start+start_pos;
+            ri.m_chf=range.m_chf;
+            ri.m_start=range.m_start+start_pos;
             ri.m_len=index-start_pos;
-            rangeAppend(&ri,block);
+            rangeAppendWithFmt(ri);
         }
         // append tab as a range
         RangeInfo ri;
-        ri.m_chf=range->m_chf;
-        ri.m_start=range->m_start+index;
+        ri.m_chf=range.m_chf;
+        ri.m_start=range.m_start+index;
         ri.m_len=1;
         ri.m_processId=UNCHANGED_ID;
 
         ri.m_is_tab=true;
-        ri.m_width_changed=0;//adjust width while create lineinfo
+        ri.m_width=0;//adjust width while create lineinfo
         m_blockRanges.append(ri);
 
         ++index;
         start_pos=index;
     }
 
-    if(start_pos< range->m_len){
+    if(start_pos< range.m_len){
         RangeInfo ri;
-        ri.m_chf=range->m_chf;
-        ri.m_start=range->m_start+start_pos;
-        ri.m_len=range->m_start+range->m_len-ri.m_start;
-        rangeAppend(&ri,block);
+        ri.m_chf=range.m_chf;
+        ri.m_start=range.m_start+start_pos;
+        ri.m_len=range.m_start+range.m_len-ri.m_start;
+        rangeAppendWithFmt(ri);
     }
 }
 
-void BlockLinesData::rangeAppend(RangeInfo* raw_range, const QTextBlock& block)
+void BlockLinesData::rangeAppendWithFmt(RangeInfo& range)
 {
-    QString text=block.text().mid(raw_range->m_start,raw_range->m_len);
-    raw_range->m_width_changed=getTextWidth(raw_range->m_chf,text);
-
-    raw_range->m_processId=UNCHANGED_ID;
-
-    RangeInfo range=*raw_range;
+    range.m_processId=UNCHANGED_ID;
 
     if(!m_cursorBlock){
         int range_end=range.m_start+range.m_len;
@@ -427,7 +523,6 @@ void BlockLinesData::rangeAppend(RangeInfo* raw_range, const QTextBlock& block)
             int pri_end=pri.m_start+pri.m_len;
 
             // pri move forward, three phase: pri before, pri.end between, pri start between, pri after
-
             //no cross, pri before range:   pri.start pri.end  range.start range.end
             if(pri_end <=range.m_start){
                 continue;
@@ -441,7 +536,6 @@ void BlockLinesData::rangeAppend(RangeInfo* raw_range, const QTextBlock& block)
                     RangeInfo part_range=range;
                     part_range.m_len=pri.m_start-range.m_start;
                     if(part_range.m_len>0){
-                        part_range.m_width_changed=getTextWidth(part_range.m_chf,block.text().mid(part_range.m_start,part_range.m_len));
                         m_blockRanges.append(part_range);
                     }
                 }else{ //pri.start [range.start pri.end] range.end
@@ -453,19 +547,6 @@ void BlockLinesData::rangeAppend(RangeInfo* raw_range, const QTextBlock& block)
 
                 //deal with second part, charFormat should set as range
                 pri.m_chf=range.m_chf;
-                pri.m_width_changed=getTextWidth(pri.m_chf,block.text().mid(pri.m_start,pri.m_len));
-
-                if(pri.m_processId==REMOVED_ID){
-                    //clear m_width_changed
-                    pri.m_width_changed=0;
-                }
-                if(pri.m_processId==REPLACED_ID){
-                    //set m_width_changed= replaced text width
-                    pri.m_width_changed=getTextWidth(pri.m_chf,pri.m_text_changed);
-                }
-                if(pri.m_processId==BLANKED_ID){
-                    //do nothing
-                }
 
                 if(pri.m_len>0){
                     m_blockRanges.append(pri);
@@ -486,7 +567,6 @@ void BlockLinesData::rangeAppend(RangeInfo* raw_range, const QTextBlock& block)
                     RangeInfo part_range=range;
                     part_range.m_len=pri.m_start-range.m_start;
                     if(part_range.m_len>0){
-                        part_range.m_width_changed=getTextWidth(part_range.m_chf,block.text().mid(part_range.m_start,part_range.m_len));
                         m_blockRanges.append(part_range);
                     }
                 }else{ //pri.start [range.start range.end] pri.end
@@ -498,20 +578,6 @@ void BlockLinesData::rangeAppend(RangeInfo* raw_range, const QTextBlock& block)
 
                 //deal with second part, charFormat should set as range
                 pri.m_chf=range.m_chf;
-                pri.m_width_changed=getTextWidth(pri.m_chf,block.text().mid(pri.m_start,pri.m_len));
-
-                if(pri.m_processId==REMOVED_ID){
-                    //clear m_width_changed
-                    pri.m_width_changed=0;
-                }
-                if(pri.m_processId==REPLACED_ID){
-                    //set m_width_changed= replaced text width
-                    pri.m_width_changed=getTextWidth(pri.m_chf,pri.m_text_changed);
-                }
-                if(pri.m_processId==BLANKED_ID){
-                    //do nothing
-                }
-
                 if(pri.m_len>0){
                     m_blockRanges.append(pri);
                 }
@@ -528,11 +594,159 @@ void BlockLinesData::rangeAppend(RangeInfo* raw_range, const QTextBlock& block)
             }
         }
     }
-
     if(range.m_len>0){
-        text=block.text().mid(range.m_start,range.m_len);
-        range.m_width_changed=getTextWidth(range.m_chf,text);
         m_blockRanges.append(range);
+    }
+}
+
+
+void BlockLinesData::rangeProcessFontStyle(const QTextBlock& block)
+{
+    for (int i = 0; i < m_blockRanges.size(); ++i) {
+        RangeInfo range=m_blockRanges[i];
+
+//        print_range("rangeProcessFontStyle",range,block);
+
+        if(range.m_processId==REMOVED_ID)continue;
+
+        if(range.m_chf.font().bold()){
+            rangeRemoveFontStyle(i,"**",range,block);
+        }
+        range=m_blockRanges[i]; //since above call maybe insert range, so assign range value again
+        if(range.m_chf.font().italic()){
+            rangeRemoveFontStyle(i,"*",range,block);
+        }
+        range=m_blockRanges[i];//since above call maybe insert range, so assign range value again
+        if(range.m_chf.font().strikeOut()){
+            rangeRemoveFontStyle(i,"~~",range,block);
+        }
+    }
+}
+
+void BlockLinesData::rangeRemoveFontStyle(int idx,QString sign_str,RangeInfo& range,const QTextBlock& block)
+{
+    QString text=block.text().mid(range.m_start,range.m_len);
+
+    QVector<RangeInfo> tmp_ranges;
+
+    //less than sign length, no need process, but head sign or tail sign maybe in two range
+    if(text.length()<sign_str.length())return;
+
+//    qWarning()<<"rangeRemoveFontStyle"<<text;
+    RangeInfo ri_h;
+    ri_h.m_chf=range.m_chf;
+    ri_h.m_processId=REMOVED_ID;
+    ri_h.m_start=range.m_start;
+    ri_h.m_len=0;
+    if(text.startsWith(sign_str)){
+        ri_h.m_len=sign_str.length();
+    }
+    if(ri_h.m_len>0){ //save to tmp ranges, insert later
+        tmp_ranges.append(ri_h);
+    }
+//    print_range("ri_h",ri_h,block);
+
+    //insert tail sign at last
+    RangeInfo ri_t;
+    ri_t.m_chf=range.m_chf;
+    ri_t.m_processId=REMOVED_ID;
+    ri_t.m_len=0;
+    if(text.length()-ri_h.m_len>sign_str.length()){
+        if(text.endsWith(sign_str)){
+            ri_t.m_len=sign_str.length();
+        }
+        ri_t.m_start=range.m_start+range.m_len-ri_t.m_len;
+    }
+//    print_range("ri_t",ri_t,block);
+
+    //range will be changed,so save at first, caution: don't use range after insert
+    int old_len=range.m_len;
+    int old_start=range.m_start;
+
+    //since two signs exist
+    QRegularExpression re;
+    re.setPattern("[^*]+");
+    int start_pos=0;
+    if(ri_h.m_len>0 && ri_t.m_len>0 && text.contains(re)){
+        //sometime two bold/italic/strikeout str connect together
+        text=text.mid(ri_h.m_len,range.m_len-2*sign_str.length());
+        if(text.length()>2*sign_str.length()&&(!text.startsWith(sign_str)&&(!text.endsWith(sign_str)))){
+            int index = 0;
+            while ((index = text.indexOf(sign_str+sign_str, start_pos)) != -1) {
+                if(index>=start_pos)
+                {
+                    RangeInfo ri;
+                    ri.m_chf=range.m_chf;
+                    ri.m_start=range.m_start+ri_h.m_len+start_pos;
+                    ri.m_processId=range.m_processId;
+                    ri.m_len=index-start_pos;
+                    if(ri.m_len>0){
+                        tmp_ranges.append(ri);
+                    }
+                    start_pos+=ri.m_len;
+
+                    // remove two sign_str
+                    ri.m_start=range.m_start+ri_h.m_len+index;
+                    ri.m_len=2*sign_str.length();
+                    ri.m_processId=REMOVED_ID;
+                    tmp_ranges.append(ri);
+                    start_pos+=ri.m_len;
+                    continue;
+                }
+            }
+        }
+
+        std::sort(tmp_ranges.begin(),tmp_ranges.end());
+//        print_ranges("tmp_ranges",tmp_ranges,block);
+
+        RangeInfo ri;
+        foreach (ri, tmp_ranges){
+            m_blockRanges.insert(idx,ri);
+            idx++;
+        }
+    }
+
+    RangeInfo &modify_range=m_blockRanges[idx];
+    modify_range.m_start=old_start+ri_h.m_len+start_pos;
+    modify_range.m_len=old_len-ri_h.m_len-ri_t.m_len-start_pos;
+    //ex: only part of bold sign, remove it only
+    if(modify_range.m_len<=0){
+        modify_range.m_processId=REMOVED_ID;
+        modify_range.m_start=old_start;
+        modify_range.m_len=old_len;
+    }
+
+    if(ri_t.m_len>0){
+        idx++;
+        m_blockRanges.insert(idx,ri_t);
+    }
+//    print_ranges("m_blockRanges",m_blockRanges,block);
+}
+
+
+void BlockLinesData::rangeProcessWidth(const QTextBlock& block)
+{
+    for (int i = 0; i < m_blockRanges.size(); ++i) {
+        RangeInfo &range=m_blockRanges[i];
+        QFontMetrics fm(range.m_chf.font());
+
+
+        range.m_width=fm.horizontalAdvance(block.text().mid(range.m_start,range.m_len));
+        if(range.m_processId==REMOVED_ID){
+            //clear m_width
+            range.m_width=0;
+        }
+        if(range.m_processId==REPLACED_ID){
+            //set m_width= replaced text width
+            range.m_width=fm.horizontalAdvance(range.m_text_changed);
+        }
+        if(range.m_processId==BLANKED_ID){
+            //do nothing
+        }
+        if(range.m_chf.font().italic()){
+            //set m_width= text width + 0.3width of char
+            range.m_width+=0.3*range.m_width/range.m_len;
+        }
     }
 }
 
@@ -582,7 +796,7 @@ void BlockLinesData::blockDraw(QPainter *p_painter,QPointF pos,QTextCharFormat s
         for (int i=0;i< li.m_ranges.count();i++) {
             range=li.m_ranges.at(i);
 
-            if(range.m_processId==REMOVED_ID||range.m_width_changed==0)continue;
+            if(range.m_processId==REMOVED_ID||range.m_width==0)continue;
 
             position.rx()+=width;
             QTextCharFormat chf=range.m_chf;
@@ -609,7 +823,7 @@ void BlockLinesData::blockDraw(QPainter *p_painter,QPointF pos,QTextCharFormat s
             } else {
                 text=block.text().mid(range.m_start,range.m_len);
             }
-            width=range.m_width_changed;
+            width=range.m_width;
 
             QRectF rect(position.x(),position.y(),width,li.m_tl.height());
 
@@ -632,7 +846,7 @@ RangeInfo BlockLinesData::getRangesWidth(LineInfo* li, int sel_start ,int sel_le
 {
     RangeInfo result;
 
-    result.m_width_changed=0;
+    result.m_width=0;
 
     if(sel_len==0){
         return result;
@@ -640,7 +854,7 @@ RangeInfo BlockLinesData::getRangesWidth(LineInfo* li, int sel_start ,int sel_le
 
     //total line
     if(sel_start==li->m_start_new && sel_len==li->m_len_new){
-        result.m_width_changed=li->m_width_visible;
+        result.m_width=li->m_width;
         return result;
     }
 
@@ -653,18 +867,20 @@ RangeInfo BlockLinesData::getRangesWidth(LineInfo* li, int sel_start ,int sel_le
             continue;
         }
 
+        QFontMetrics fm(ri.m_chf.font());
+
         if(sel_start <ri_end && ri_end < sel_end){ // ri end between selection, add right hand part width to part of selection, continue
             //ri is tab,width is variable, so can't use getTextWidth here
             if(ri.m_is_tab){
-                result.m_width_changed+=ri.m_width_changed;
+                result.m_width+=ri.m_width;
             }else{
                 if(sel_start<ri.m_start){// sel_start [ri.start ri_end] sel_end, continue
-                    result.m_width_changed+=ri.m_width_changed;
+                    result.m_width+=ri.m_width;
                 }else{ //ri.start [sel_start ri.end] sle_len
                     if(ri.m_processId==REPLACED_ID){
-                        result.m_width_changed+=getTextWidth(ri.m_chf,ri.m_text_changed.mid(sel_start-ri.m_start,ri_end-sel_start));
+                        result.m_width+=fm.horizontalAdvance(ri.m_text_changed.mid(sel_start-ri.m_start,ri_end-sel_start));
                     }else if(ri.m_processId!=REMOVED_ID){
-                        result.m_width_changed+=getTextWidth(ri.m_chf,block.text().mid(sel_start,ri_end-sel_start));;
+                        result.m_width+=fm.horizontalAdvance(block.text().mid(sel_start,ri_end-sel_start));
                     }
                 }
             }
@@ -678,27 +894,27 @@ RangeInfo BlockLinesData::getRangesWidth(LineInfo* li, int sel_start ,int sel_le
         if(sel_end <=ri_end && ri.m_start < sel_end){ // selection end between the ri,  add left hand ri width to part of selection, finished
             //ri is tab,width is variable, so can't use getTextWidth here
             if(ri.m_is_tab){
-                result.m_width_changed+=ri.m_width_changed;
+                result.m_width+=ri.m_width;
                 return result;
             }else{
                 if(sel_start<ri.m_start){ //sel_start [ri.start sel_end] ri_end
                     if(ri.m_processId==REPLACED_ID){
-                        result.m_width_changed+=getTextWidth(ri.m_chf,ri.m_text_changed.mid(0,sel_end-ri.m_start));
+                        result.m_width+=fm.horizontalAdvance(ri.m_text_changed.mid(0,sel_end-ri.m_start));
                     }else if(ri.m_processId!=REMOVED_ID){
-                        result.m_width_changed+=getTextWidth(ri.m_chf,block.text().mid(ri.m_start,sel_end-ri.m_start));;
+                        result.m_width+=fm.horizontalAdvance(block.text().mid(ri.m_start,sel_end-ri.m_start));;
                     }
                 }else{ // ri.start [sel_start sel_end] ri.end
                     if(ri.m_processId==REPLACED_ID){
-                        result.m_width_changed+=getTextWidth(ri.m_chf,block.text().mid(sel_start-ri.m_start,sel_len));
+                        result.m_width+=fm.horizontalAdvance(block.text().mid(sel_start-ri.m_start,sel_len));
                     }else if(ri.m_processId!=REMOVED_ID){
-                        result.m_width_changed+=getTextWidth(ri.m_chf,block.text().mid(sel_start,sel_len));
+                        result.m_width+=fm.horizontalAdvance(block.text().mid(sel_start,sel_len));
                     }
                 }
             }
 
             // if selection between removed ri, set mini width to indicated
-            if(ri.m_processId==REMOVED_ID && result.m_width_changed==0){
-                result.m_width_changed=0.5;
+            if(ri.m_processId==REMOVED_ID && result.m_width==0){
+                result.m_width=0.5;
                 return result;
             }
 
@@ -710,7 +926,7 @@ RangeInfo BlockLinesData::getRangesWidth(LineInfo* li, int sel_start ,int sel_le
         }
     }
 
-    //    qWarning()<<"   selection"<<sel_start<<sel_end<<result.m_width_changed<<block.text().mid(sel_start,sel_len);
+    //    qWarning()<<"   selection"<<sel_start<<sel_end<<result.m_width<<block.text().mid(sel_start,sel_len);
 
     return result;
 }
@@ -731,7 +947,7 @@ void BlockLinesData::addSelectedRegionsToPath(LineInfo* li,const QPointF &pos,
         start=li->m_start_new;
         len=selection->start-li->m_start_new;
         result=getRangesWidth(li,start,len,block);
-        selection_off+=result.m_width_changed;
+        selection_off+=result.m_width;
         start=selection->start;
     } else{
         start=li->m_start_new;
@@ -739,11 +955,11 @@ void BlockLinesData::addSelectedRegionsToPath(LineInfo* li,const QPointF &pos,
     if(selectionEndInLine ){// get width to range end
         len=selection->start+selection->length - start;
         result=getRangesWidth(li,start,len,block);
-        selection_width+=result.m_width_changed;
+        selection_width+=result.m_width;
     }else{ // get width to line end
         len=li->m_start_new+li->m_len_new- start;
         result=getRangesWidth(li,start,len,block);
-        selection_width+=result.m_width_changed;
+        selection_width+=result.m_width;
     }
 
     qreal lineHeight = li->m_tl.height();
@@ -812,7 +1028,7 @@ void BlockLinesData::draw(QPainter *p, const QPointF &offset,const QAbstractText
 
             //            qWarning()<<"lineInfo i"<<line<<"start"<<li.m_start_new<<"len"<<li.m_len_new<<li.m_width_visible<<block.text().mid(li.m_start_new,li.m_len_new);
 
-            QRectF lineRect(tl.naturalTextRect().x(),tl.naturalTextRect().y(),li.m_width_visible,tl.naturalTextRect().height());
+            QRectF lineRect(tl.naturalTextRect().x(),tl.naturalTextRect().y(),li.m_width,tl.naturalTextRect().height());
             lineRect.translate(position);
 
             //lineRect.adjust(0, 0, d->leadingSpaceWidth(sl).toReal(), 0);
@@ -931,4 +1147,61 @@ void BlockLinesData::draw(QPainter *p, const QPointF &offset,const QAbstractText
     blockDraw(p,position,QTextCharFormat(),firstLine,lastLine,block);
     if (!excludedRegion.isEmpty())
         p->restore();
+}
+
+bool BlockLinesData::atWordSeparator(int& position,QString& text)
+{
+    const QChar c = text.at(position);
+    switch (c.unicode()) {
+    case '.':
+    case ',':
+    case '?':
+    case '!':
+    case '@':
+    case '#':
+    case '$':
+    case ':':
+    case ';':
+    case '-':
+    case '<':
+    case '>':
+    case '[':
+    case ']':
+    case '(':
+    case ')':
+    case '{':
+    case '}':
+    case '=':
+    case '/':
+    case '+':
+    case '%':
+    case '&':
+    case '^':
+    case '*':
+    case '\'':
+    case '"':
+    case '`':
+    case '~':
+    case '|':
+    case '\\':
+    case 0x2013:
+    case 0x2018:
+    case 0x2019:
+    case 0x2026:
+    case 0x3001:
+    case 0x3002:
+    case 0x201C:
+    case 0x201D:
+    case 0xFF01:
+    case 0xFF0C:
+    case 0xFF0E:
+    case 0xFF1A:
+    case 0xFF1B:
+    case 0xFF1F:
+//        qWarning()<<"at separator"<<text.mid(position);
+        return true;
+    default:
+        break;
+    }
+    return false;
 }

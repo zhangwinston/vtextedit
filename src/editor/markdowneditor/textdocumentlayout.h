@@ -199,9 +199,7 @@ namespace vte
         // Width of the cursor.
         int m_cursorWidth = 1;
 
-        int m_cursorBlockNumber=0;
-
-        int m_cursor_refresh_id=0;
+        int m_cursorBlockNumber=-1;
 
         // Right margin for cursor.
         qreal m_cursorMargin = 4;

@@ -641,7 +641,8 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block,
     }
 
     const auto &linesData = BlockLinesData::get(p_block);
-    if(m_cursorBlockNumber!=p_block.blockNumber()&&document()->characterCount()>1&&document()->pageSize().width()>100){
+    //if(m_cursorBlockNumber!=p_block.blockNumber()&&document()->characterCount()>1&&document()->pageSize().width()>100){
+    if(m_cursorBlockNumber>=0&&document()->pageSize().width()>100){
         linesData->initBlockRanges(m_cursorBlockNumber,p_block);
         linesData->getBlockRanges(p_block);
     }
@@ -695,6 +696,10 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block,
 
                 if(m_cursorBlockNumber==p_block.blockNumber()){
                     p_height += imgHeight + c_markerThickness * 2 + c_imagePadding * 2;
+                }else{
+                    if(imgHeight>line.height()){
+                        p_height += imgHeight + c_markerThickness * 2 + c_imagePadding * 2 -line.height();
+                    }
                 }
             }
         }
@@ -702,12 +707,13 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block,
         line.setPosition(QPointF(m_margin, p_height));
         p_height += line.height();
 
-        if(m_cursorBlockNumber!=p_block.blockNumber()&&document()->characterCount()>1&&document()->pageSize().width()>100){
+        //if(m_cursorBlockNumber!=p_block.blockNumber()&&document()->characterCount()>1&&document()->pageSize().width()>100){
+        if(m_cursorBlockNumber>=0&&document()->pageSize().width()>100){
             start=linesData->getLineRanges(line,start,p_block);
             if(start>=p_block.text().length()){
                 break;
             }
-         }
+        }
     }
 
     p_tl->endLayout();
@@ -1175,6 +1181,7 @@ void TextDocumentLayout::setCursorBlockNumber(const QTextBlock &p_block)
             layoutBlockAndUpdateOffset(pre_block);
         }
         layoutBlockAndUpdateOffset(p_block);
+
     }else{
         layoutBlockAndUpdateOffset(p_block);
         if(pre_block.isValid()){
