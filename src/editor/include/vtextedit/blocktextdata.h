@@ -4,13 +4,14 @@
 #include <QAbstractTextDocumentLayout>
 #include <QVector>
 #include <vtextedit/vtextedit_export.h>
+#include <QTextBlock>
 
 #define UNCHANGED_ID 0
 #define REMOVED_ID 1
 #define REPLACED_ID 2
 #define BLANKED_ID 3
 
-class QTextBlock;
+//class QTextBlock;
 
 namespace Sonnet
 {
@@ -90,7 +91,6 @@ namespace vte
         QVector<LineInfo> m_lines;
         QVector<RangeInfo> m_blockPreRanges;
         QVector<RangeInfo> m_blockRanges;
-
 
         //total lines width changed in block
 

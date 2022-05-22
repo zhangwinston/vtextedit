@@ -8,10 +8,12 @@
 #include <QFont>
 #include <QPainter>
 #include <QDebug>
+#include <QElapsedTimer>
 
 #include <vtextedit/textblockdata.h>
 #include <vtextedit/previewdata.h>
 #include <vtextedit/blocktextdata.h>
+#include <vtextedit/stack_dumper.h>
 
 #include "peghighlightblockdata.h"
 #include "documentresourcemgr.h"
@@ -23,6 +25,13 @@ const int TextDocumentLayout::c_markerThickness = 0;  //zhangyw modify from 2 to
 const int TextDocumentLayout::c_maxInlineImageHeight = 400;
 
 const int TextDocumentLayout::c_imagePadding = 2;
+
+#define LOG_DEBUG \
+    { \
+        auto str = StackDumper().DumpStack(); \
+        qWarning()<<str.data();        \
+    }
+
 
 static bool realEqual(qreal p_a, qreal p_b)
 {
@@ -230,12 +239,12 @@ void TextDocumentLayout::draw(QPainter *p_painter, const PaintContext &p_context
         auto selections = formatRangeFromSelection(block, p_context.selections);
 
 //modify by zhangyw for simple text display
-        if(m_cursorBlockNumber==block.blockNumber()){
-            layout->draw(p_painter,offset,selections,p_context.clip.isValid() ? p_context.clip : QRectF());
-        }else{
+//        if(m_cursorBlockNumber==block.blockNumber()){
+//            layout->draw(p_painter,offset,selections,p_context.clip.isValid() ? p_context.clip : QRectF());
+//        }else{
             auto linesData=BlockLinesData::get(block);
             linesData->draw(p_painter,offset,p_context,selections,document()->defaultTextOption(),block);
-        }
+//        }
 //modify by zhangyw for simple text display
 
         drawPreview(p_painter, block, offset);
@@ -393,12 +402,15 @@ void TextDocumentLayout::documentChanged(int p_from, int p_charsRemoved, int p_c
     QTextDocument *doc = document();
     int newBlockCount = doc->blockCount();
 
+    if(doc->characterCount()<=1)return;
+
     // Update the margin.
     m_margin = doc->documentMargin();
 
     int charsChanged = p_charsRemoved + p_charsAdded;
 
     QTextBlock changeStartBlock = doc->findBlock(p_from);
+
     // May be an invalid block.
     QTextBlock changeEndBlock;
     if (p_charsRemoved == p_charsAdded
@@ -497,6 +509,8 @@ void TextDocumentLayout::layoutBlock(const QTextBlock &p_block)
     QTextDocument *doc = document();
     Q_ASSERT(m_margin == doc->documentMargin());
 
+    if(document()->pageSize().width()<100)return;
+
     QTextLayout *tl = p_block.layout();
     QTextOption option = doc->defaultTextOption();
 
@@ -527,13 +541,15 @@ void TextDocumentLayout::layoutBlock(const QTextBlock &p_block)
     int extraMargin = 0;
     if (option.flags() & QTextOption::AddSpaceForLineAndParagraphSeparators) {
         QFontMetrics fm(p_block.charFormat().font());
-        extraMargin += fm.width(QChar(0x21B5));
+        extraMargin += fm.horizontalAdvance(QChar(0x21B5));
     }
 
     qreal availableWidth = doc->pageSize().width();
     if (availableWidth <= 0 || !shouldBlockWrapLine(p_block)) {
         availableWidth = qreal(INT_MAX);
     }
+
+//    LOG_DEBUG;
 //    qWarning()<<"layoutblock: doc->pagesize"<<doc->pageSize()<<"doc characterCount"<<document()->characterCount()<<"block number"<<p_block.blockNumber();
 
     availableWidth -= (2 * m_margin + extraMargin + m_cursorMargin + m_cursorWidth);
@@ -541,7 +557,12 @@ void TextDocumentLayout::layoutBlock(const QTextBlock &p_block)
     QVector<Marker> markers;
     QVector<ImagePaintData> images;
 
+//    QElapsedTimer time;
+//    time.start();
+
     layoutLines(p_block, tl, markers, images, availableWidth, 0);
+
+//    qWarning()<<"layoutLines"<<time.nsecsElapsed()<<"ns";
 
     // Set this block's line count to its layout's line count.
     // That is one block may occupy multiple visual lines.
@@ -641,11 +662,11 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block,
     }
 
     const auto &linesData = BlockLinesData::get(p_block);
-    //if(m_cursorBlockNumber!=p_block.blockNumber()&&document()->characterCount()>1&&document()->pageSize().width()>100){
-    if(m_cursorBlockNumber>=0&&document()->pageSize().width()>100){
-        linesData->initBlockRanges(m_cursorBlockNumber,p_block);
-        linesData->getBlockRanges(p_block);
-    }
+    //if(m_cursorBlockNumber!=p_block.blockNumber()){
+    linesData->initBlockRanges(m_cursorBlockNumber,p_block);
+    linesData->getBlockRanges(p_block);
+    //}
+
 
     p_tl->beginLayout();
 
@@ -665,7 +686,8 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block,
         if(firstLine==true){
             firstLine=false;
             auto preBlk = p_block.previous();
-            if(preBlk.isValid()&&preBlk.length()>1&&(p_block.length()>1)){
+            if(p_block.blockNumber()==0||
+              (preBlk.isValid()&&preBlk.length()>1&&(p_block.length()>1))){
                p_height += m_leadingSpaceOfLine;
             }
         }else{
@@ -707,13 +729,13 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block,
         line.setPosition(QPointF(m_margin, p_height));
         p_height += line.height();
 
-        //if(m_cursorBlockNumber!=p_block.blockNumber()&&document()->characterCount()>1&&document()->pageSize().width()>100){
-        if(m_cursorBlockNumber>=0&&document()->pageSize().width()>100){
-            start=linesData->getLineRanges(line,start,p_block);
-            if(start>=p_block.text().length()){
-                break;
-            }
-        }
+
+//        if(m_cursorBlockNumber!=p_block.blockNumber()){
+                start=linesData->getLineRanges(line,start,p_block);
+                if(start>=p_block.text().length()){
+                    break;
+                }
+//        }
     }
 
     p_tl->endLayout();
@@ -759,7 +781,7 @@ void TextDocumentLayout::finishBlockLayout(const QTextBlock &p_block,
     Q_ASSERT(p_block.isValid());
     ImagePaintData ipd;
     auto info = BlockLayoutData::get(p_block);
-    Q_ASSERT(info->isNull());
+    //Q_ASSERT(info->isNull());
     info->reset();
     info->m_rect = blockRectFromTextLayout(p_block, &ipd);
     Q_ASSERT(!info->m_rect.isNull());
@@ -1172,6 +1194,8 @@ int TextDocumentLayout::cursorWidth() const
 
 void TextDocumentLayout::setCursorBlockNumber(const QTextBlock &p_block)
 {
+    if(document()->characterCount()<=1)return;
+
     int pre_blockNumber=m_cursorBlockNumber;
     QTextBlock pre_block=document()->findBlockByNumber(pre_blockNumber);
     m_cursorBlockNumber=p_block.blockNumber();
@@ -1203,6 +1227,9 @@ void TextDocumentLayout::layoutBlockAndUpdateOffset(const QTextBlock &p_block)
 
 void TextDocumentLayout::updateOffset(const QTextBlock &p_block)
 {
+    auto info = BlockLayoutData::get(p_block);
+    if (info->isNull())return;
+
     updateOffsetBefore(p_block);
     updateOffsetAfter(p_block);
 }

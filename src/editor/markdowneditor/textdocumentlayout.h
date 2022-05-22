@@ -207,7 +207,7 @@ namespace vte
         DocumentResourceMgr *m_resourceMgr = nullptr;
 
         // Whether allow preview of block.
-        bool m_previewEnabled = false;
+        bool m_previewEnabled = true;
 
         // Whether constrain the width of preview to the width of the page.
         bool m_constrainPreviewWidthEnabled = false;

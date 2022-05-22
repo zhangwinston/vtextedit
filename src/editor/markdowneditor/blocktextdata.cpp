@@ -10,7 +10,7 @@
 #include <QtAlgorithms>
 #include <speller.h>
 #include <tokenizer_p.h>
-#include <QTimer>
+#include <QElapsedTimer>
 
 #define ObjectSelectionBrush (QTextFormat::ForegroundBrush + 1)
 #define SuppressText 0x5012
@@ -298,11 +298,19 @@ bool BlockLinesData::posInWord(int& pos,int& tokenizer_len,Sonnet::WordTokenizer
 
 void BlockLinesData::getSuitableWidth(qreal distance,qreal& width,int& pos,RangeInfo& range, const QTextBlock& block)
 {
+    QElapsedTimer time;
+    time.start();
+
     QFontMetrics fm(range.m_chf.font());
 
     QString range_text=block.text().mid(range.m_start,range.m_len);
     qreal average_width=range.m_width/range.m_len;
     int estimated_len=distance/average_width+1;
+    QTextLayout textLayout;
+    textLayout.setText(range_text);
+    textLayout.setFont(range.m_chf.font());
+    textLayout.setCacheEnabled(true);
+
 
 //    qWarning()<<"range text"<<range_text;
 
@@ -333,6 +341,7 @@ void BlockLinesData::getSuitableWidth(qreal distance,qreal& width,int& pos,Range
 
     //get the right break position, avoid word or separator
     for(int i=pos;i>=1;i--){
+
         while(i>1 && atWordSeparator(i,range_text)){
             i--;
         }
@@ -356,6 +365,9 @@ void BlockLinesData::getSuitableWidth(qreal distance,qreal& width,int& pos,Range
 
 int BlockLinesData::getLineRanges(const QTextLine line,int start,const QTextBlock& block)
 {
+    QElapsedTimer time;
+    time.start();
+
     LineInfo li(line);
 
     li.m_start_new=0;
@@ -364,6 +376,7 @@ int BlockLinesData::getLineRanges(const QTextLine line,int start,const QTextBloc
     qreal distance=0;
 
     for (int idx = 0; idx < m_blockRanges.size(); ++idx) {
+
         auto &range=m_blockRanges[idx];
 
 //        print_range("satrt "+QVariant(start).toString()+" "+QVariant(idx).toString(),m_blockRanges.at(idx),block);
@@ -726,10 +739,12 @@ void BlockLinesData::rangeRemoveFontStyle(int idx,QString sign_str,RangeInfo& ra
 
 void BlockLinesData::rangeProcessWidth(const QTextBlock& block)
 {
+    QElapsedTimer time;
+    time.start();
+
     for (int i = 0; i < m_blockRanges.size(); ++i) {
         RangeInfo &range=m_blockRanges[i];
         QFontMetrics fm(range.m_chf.font());
-
 
         range.m_width=fm.horizontalAdvance(block.text().mid(range.m_start,range.m_len));
         if(range.m_processId==REMOVED_ID){
