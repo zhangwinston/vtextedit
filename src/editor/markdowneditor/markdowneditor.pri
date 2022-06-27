@@ -4,6 +4,7 @@ SOURCES += \
     $$PWD/editorpegmarkdownhighlighter.cpp \
     $$PWD/editorpreviewmgr.cpp \
     $$PWD/ksyntaxcodeblockhighlighter.cpp \
+    $$PWD/stack_dumper.cpp \
     $$PWD/vmarkdowneditor.cpp \
     $$PWD/pegmarkdownhighlighter.cpp \
     $$PWD/pegparser.cpp \

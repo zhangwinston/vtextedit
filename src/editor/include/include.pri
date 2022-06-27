@@ -1,11 +1,11 @@
 HEADERS += \
     $$PWD/vtextedit/blocksegment.h \
-    $$PWD/vtextedit/blocktextata.h \
     $$PWD/vtextedit/blocktextdata.h \
     $$PWD/vtextedit/markdowneditorconfig.h \
     $$PWD/vtextedit/global.h \
     $$PWD/vtextedit/orderedintset.h \
     $$PWD/vtextedit/spellchecker.h \
+    $$PWD/vtextedit/stack_dumper.h \
     $$PWD/vtextedit/vtextedit_export.h \
     $$PWD/vtextedit/vtextedit.h \
     $$PWD/vtextedit/vtexteditor.h \
