@@ -103,7 +103,6 @@ void VMarkdownEditor::setupDocumentLayout()
     m_resourceMgr.reset(new DocumentResourceMgr());
 
     auto docLayout = new TextDocumentLayout(document(), m_resourceMgr.data());
-    docLayout->setPreviewEnabled(true);
 
     document()->setDocumentLayout(docLayout);
 

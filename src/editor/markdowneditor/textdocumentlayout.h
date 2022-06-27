@@ -199,9 +199,7 @@ namespace vte
         // Width of the cursor.
         int m_cursorWidth = 1;
 
-        int m_cursorBlockNumber=0;
-
-        int m_cursor_refresh_id=0;
+        int m_cursorBlockNumber=-1;
 
         // Right margin for cursor.
         qreal m_cursorMargin = 4;
@@ -209,7 +207,7 @@ namespace vte
         DocumentResourceMgr *m_resourceMgr = nullptr;
 
         // Whether allow preview of block.
-        bool m_previewEnabled = false;
+        bool m_previewEnabled = true;
 
         // Whether constrain the width of preview to the width of the page.
         bool m_constrainPreviewWidthEnabled = false;
