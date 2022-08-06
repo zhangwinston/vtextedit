@@ -181,6 +181,7 @@ namespace vte
         //add by zhangyw leaderkey skip, navigationMode skip extra keys
         void setNavigationModeKeysToSkip(int p_key, Qt::KeyboardModifiers p_modifiers, bool withLeaderKey);
         //add by zhangyw leaderkey skip, navigationMode skip extra keys
+        static void forceInputMethodDisabled(bool p_force);
 
     signals:
         void cursorLineChanged();
@@ -291,6 +292,10 @@ namespace vte
 
         bool handleKeyReturn(QKeyEvent *p_event);
 
+        bool isInputMethodEnabled() const;
+
+        static void resetInputMethod();
+
         static QChar matchingClosingBracket(const QChar &p_open);
 
         void recoverInputMethodEnabled();
@@ -349,6 +354,7 @@ namespace vte
 
         // keyReleaseEvent count needed to release the leader key.
         int m_leaderKeyReleaseCount = 0;
+        static bool s_forceInputMethodDisabled;
 
         int m_navigationKeyCount = 0;
         bool m_navigationMode = false;
