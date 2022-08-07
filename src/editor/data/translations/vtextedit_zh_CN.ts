@@ -100,27 +100,27 @@
 <context>
     <name>vte::VTextEditor</name>
     <message>
-        <location filename="../../texteditor/vtexteditor.cpp" line="1344"/>
+        <location filename="../../texteditor/vtexteditor.cpp" line="1338"/>
         <source>Zero-length match</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../texteditor/vtexteditor.cpp" line="1414"/>
+        <location filename="../../texteditor/vtexteditor.cpp" line="1408"/>
         <source>Spelling &quot;%1&quot;</source>
         <translation>拼写 &quot;%1&quot;</translation>
     </message>
     <message>
-        <location filename="../../texteditor/vtexteditor.cpp" line="1416"/>
+        <location filename="../../texteditor/vtexteditor.cpp" line="1410"/>
         <source>Ignore Word</source>
         <translation>忽略词</translation>
     </message>
     <message>
-        <location filename="../../texteditor/vtexteditor.cpp" line="1424"/>
+        <location filename="../../texteditor/vtexteditor.cpp" line="1418"/>
         <source>Add To Dictionary</source>
         <translation>添加到词典</translation>
     </message>
     <message>
-        <location filename="../../texteditor/vtexteditor.cpp" line="1436"/>
+        <location filename="../../texteditor/vtexteditor.cpp" line="1430"/>
         <source>No Suggestions</source>
         <translation>无建议</translation>
     </message>
