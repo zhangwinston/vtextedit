@@ -379,7 +379,7 @@ void VTextEdit::keyPressEvent(QKeyEvent *p_event)
     }
 }
 
-     // add by zhangyw count is zero, change disable mode to enable
+// add by zhangyw count is zero, change disable mode to enable
 void VTextEdit::recoverInputMethodEnabled()
 {
     if (m_leaderKeyReleaseCount <= 0 && m_navigationKeyCount <= 0 ) {

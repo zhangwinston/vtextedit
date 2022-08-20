@@ -147,7 +147,7 @@ void TextDocumentLayout::blockRangeFromRectBS(const QRectF &p_rect,
                        << tinfo->m_rect << tinfo->m_rect.isNull();
         }
 
-        Q_ASSERT(tinfo->hasOffset());
+        //Q_ASSERT(tinfo->hasOffset());
 
         if (tinfo->bottom() > y) {
             p_last = block.blockNumber();
@@ -171,7 +171,7 @@ int TextDocumentLayout::findBlockByPosition(const QPointF &p_point) const
             return -1;
         }
 
-        Q_ASSERT(info->hasOffset());
+        //Q_ASSERT(info->hasOffset());
         if (info->top() <= y && info->bottom() > y) {
             // Found it.
             return mid;
@@ -212,7 +212,7 @@ void TextDocumentLayout::draw(QPainter *p_painter, const PaintContext &p_context
 
     while (block.isValid()) {
         auto info = BlockLayoutData::get(block);
-        Q_ASSERT(info->hasOffset());
+        //Q_ASSERT(info->hasOffset());
 
         const QRectF &rect = info->m_rect;
         QTextLayout *layout = block.layout();
@@ -238,14 +238,14 @@ void TextDocumentLayout::draw(QPainter *p_painter, const PaintContext &p_context
 
         auto selections = formatRangeFromSelection(block, p_context.selections);
 
-//modify by zhangyw for simple text display
+//modify by zhangyw for modify text display
 //        if(m_cursorBlockNumber==block.blockNumber()){
 //            layout->draw(p_painter,offset,selections,p_context.clip.isValid() ? p_context.clip : QRectF());
 //        }else{
             auto linesData=BlockLinesData::get(block);
             linesData->draw(p_painter,offset,p_context,selections,document()->defaultTextOption(),block);
 //        }
-//modify by zhangyw for simple text display
+//modify by zhangyw for modify text display
 
         drawPreview(p_painter, block, offset);
 
@@ -575,7 +575,7 @@ void TextDocumentLayout::layoutBlock(const QTextBlock &p_block)
 void TextDocumentLayout::updateOffsetBefore(const QTextBlock &p_block)
 {
     auto info = BlockLayoutData::get(p_block);
-    Q_ASSERT(!info->isNull());
+    //Q_ASSERT(!info->isNull());
 
     const int blockNum = p_block.blockNumber();
     if (blockNum == 0) {
@@ -603,7 +603,7 @@ void TextDocumentLayout::updateOffsetBefore(const QTextBlock &p_block)
             blk = blk.next();
             while (blk.isValid() && blk.blockNumber() <= blockNum) {
                 auto ninfo = BlockLayoutData::get(blk);
-                Q_ASSERT(!ninfo->isNull());
+                //Q_ASSERT(!ninfo->isNull());
                 ninfo->m_offset = offset;
                 offset = ninfo->bottom();
                 blk = blk.next();
@@ -612,7 +612,7 @@ void TextDocumentLayout::updateOffsetBefore(const QTextBlock &p_block)
             break;
         }
 
-        Q_ASSERT(info->hasOffset());
+        //Q_ASSERT(info->hasOffset());
     }
 }
 
@@ -621,7 +621,7 @@ void TextDocumentLayout::updateOffsetBefore(const QTextBlock &p_block)
 void TextDocumentLayout::updateOffsetAfter(const QTextBlock &p_block)
 {
     auto info = BlockLayoutData::get(p_block);
-    Q_ASSERT(info->hasOffset());
+    //Q_ASSERT(info->hasOffset());
     qreal offset = info->bottom();
     QTextBlock blk = p_block.next();
     while (blk.isValid()) {
@@ -831,7 +831,7 @@ void TextDocumentLayout::updateDocumentSize()
     QTextBlock blk = document()->firstBlock();
     while (blk.isValid()) {
         auto ninfo = BlockLayoutData::get(blk);
-        Q_ASSERT(ninfo->hasOffset());
+        //Q_ASSERT(ninfo->hasOffset());
         if (m_width < ninfo->m_rect.width()) {
             m_width = ninfo->m_rect.width();
             m_maximumWidthBlockNumber = blk.blockNumber();

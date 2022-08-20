@@ -700,21 +700,24 @@ void MarkdownUtils::typeBlockMarker(VTextEdit *p_edit,
 
     cursor.beginEditBlock();
     if (p_edit->hasSelection()) {
+
         const auto &selection = p_edit->getSelection();
         int start = selection.start();
         int end = selection.end();
+        QTextBlock endBlock = cursor.block();
 
         cursor.clearSelection();
         cursor.setPosition(start);
         const QString indentSpaces = TextUtils::fetchIndentationSpaces(cursor.block().text());
         cursor.setPosition(end);
-        if(cursor.atBlockStart()){
-            cursor.setPosition(QTextCursor::PreviousCharacter);
+        //add by zhangyw for refine type block marker
+        if(end==endBlock.position()){
+            cursor.movePosition(QTextCursor::PreviousCharacter);
         }
+        //add by zhangyw for refine type block marker
         TextEditUtils::insertBlock(cursor, false);
         cursor.insertText(indentSpaces + p_endMarker);
 
-        QTextBlock endBlock = cursor.block();
 
         cursor.setPosition(start);
         TextEditUtils::insertBlock(cursor, true);
@@ -724,6 +727,7 @@ void MarkdownUtils::typeBlockMarker(VTextEdit *p_edit,
             cursor.setPosition(endBlock.position());
         }
         cursor.movePosition(QTextCursor::EndOfBlock);
+
     } else {
         // We allow chars after start marker.
         QRegularExpression startReg(QString("^(\\s*)%1").arg(QRegularExpression::escape(p_startMarker)));
