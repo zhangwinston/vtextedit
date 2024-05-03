@@ -172,7 +172,7 @@ void VTextEdit::mouseReleaseEvent(QMouseEvent *p_event)
 static QTextDocument::FindFlags findFlagsToDocumentFindFlags(FindFlags p_flags)
 {
     // We do not handle FindFlags::RegularExpression here.
-    QTextDocument::FindFlags findFlags;
+    QTextDocument::FindFlags findFlags = 0;
 
     if (p_flags & FindFlag::FindBackward) {
         findFlags |= QTextDocument::FindBackward;
@@ -198,17 +198,81 @@ QList<QTextCursor> VTextEdit::findAllText(const QString &p_text,
         return QList<QTextCursor>();
     }
 
-    auto flags = findFlagsToDocumentFindFlags(p_flags);
+    QList<QTextCursor> results;
+    int end = p_end == -1 ? document()->characterCount() + 1 : p_end;
+    int start = p_start;
+    int matched_start = -1;
+    int matched_end = -1;
+
     if (p_flags & FindFlag::RegularExpression) {
-        QRegularExpression regex(p_text);
-        if (!regex.isValid()) {
-            return QList<QTextCursor>();
+        QStringList testList=TextUtils::listWithNewline(p_text);
+        if(!testList.isEmpty())
+        {
+            int start_first = p_start;
+            int matched_list_start = -1;
+            int matched_list_end = -1;
+            while(start< end){
+                for (int i = 0; i < testList.count(); ++i){
+                    QTextCursor cursor=matchText(testList.at(i), p_flags, start, end);
+                    if(cursor.isNull()==false){
+                        start = cursor.selectionEnd(); //匹配成功的搜索尾部，++i循环的起始地址
+                        matched_start = cursor.selectionStart();
+                        matched_end=cursor.selectionEnd();
+                        if(i==0){  //匹配起始位置
+                            matched_list_start=matched_start;
+                            matched_list_end=matched_start;
+
+                            start_first=start; //第1项匹配成功的搜索尾部，临时保存，后面可能要重新进入for循环起始地址
+                            if(matched_start==matched_end) //长度为0调整搜索位置避免进入while死循环
+                                ++start_first;
+                        }
+                        if(matched_list_end==matched_start){
+                            //当前项跟前面的匹配是成功的并且是相连的，继续for循环，匹配下一项
+                            matched_list_end=matched_end;
+                            continue;
+                        }
+                    }
+
+                    //第一项已经匹配成功，但后面某项匹配失败，跳出for，重新进入while循环
+                    matched_list_start=-1;
+                    matched_list_end=-1;
+                    start=start_first;
+
+                    //第一项匹配失败，则跳出for， 同时设置start到末尾，以终止while
+                    if(i==0){
+                        start=end;
+                    }
+                    break;
+                }
+
+                if(matched_list_start!=-1 && matched_list_end!=-1){
+                    //list中所有项都匹配成功，保存到结果列表，start位置从这次匹配成功的尾部重新开始
+                    QTextCursor cursor=textCursor();
+                    cursor.setPosition(matched_list_start);
+                    cursor.setPosition(matched_list_end,QTextCursor::KeepAnchor);
+                    results.append(cursor);
+                    start=matched_list_end;
+                    continue;
+                }
+            }
+            return results;
         }
-        return findAllTextInDocument(regex, flags, p_start, p_end);
-    } else {
-        return findAllTextInDocument(p_text, flags, p_start, p_end);
     }
+    //no newline search here
+    while(start< end){
+        QTextCursor cursor=matchText(p_text, p_flags, start, end);
+        if(!cursor.isNull()){
+            start = cursor.selectionEnd(); //匹配成功的搜索尾部，++i循环的起始地址
+            results.append(cursor);
+            if(start==cursor.selectionStart()) //长度为0调整搜索位置避免死循环
+                ++start;
+            continue;
+        }
+        break; //搜索不成功终止while
+    }
+    return results;
 }
+//modify by zhangyw for find newline
 
 QTextCursor VTextEdit::findText(const QString &p_text,
                                 FindFlags p_flags,
@@ -220,6 +284,16 @@ QTextCursor VTextEdit::findText(const QString &p_text,
 
     auto flags = findFlagsToDocumentFindFlags(p_flags);
     if (p_flags & FindFlag::RegularExpression) {
+        //add by zhangyw for find newline
+        if(p_text.compare("\\n",Qt::CaseInsensitive)==0){
+            QTextCursor cursor=textCursor();
+            cursor.setPosition(p_start);
+            cursor.movePosition(QTextCursor::EndOfBlock);
+            if(cursor.movePosition(QTextCursor::NextCharacter,QTextCursor::KeepAnchor))
+                return cursor;
+        }
+        //add by zhangyw for find newline
+
         QRegularExpression regex(p_text);
         if (!regex.isValid()) {
             return QTextCursor();
@@ -229,6 +303,38 @@ QTextCursor VTextEdit::findText(const QString &p_text,
         return findTextInDocument(p_text, flags, p_start);
     }
 }
+
+//add by zhangyw for find newline
+QTextCursor VTextEdit::matchText(const QString &p_text,
+                                FindFlags p_flags,
+                                int p_start,
+                                int p_end)
+{
+    if (p_text.isEmpty()) {
+        return QTextCursor();
+    }
+
+    auto flags = findFlagsToDocumentFindFlags(p_flags);
+    if (p_flags & FindFlag::RegularExpression) {
+
+        if(p_text.compare("\\n",Qt::CaseInsensitive)==0){
+            QTextCursor cursor=textCursor();
+            cursor.setPosition(p_start);
+            cursor.movePosition(QTextCursor::EndOfBlock);
+            if(cursor.movePosition(QTextCursor::NextCharacter,QTextCursor::KeepAnchor))
+                return cursor;
+        }
+
+        QRegularExpression regex(p_text);
+        if (!regex.isValid()) {
+            return QTextCursor();
+        }
+        return matchTextInDocument(regex, flags, p_start, p_end);
+    } else {
+        return matchTextInDocument(p_text, flags, p_start, p_end);
+    }
+}
+//add by zhangyw for find newline
 
 void VTextEdit::setInputMode(const QSharedPointer<AbstractInputMode> &p_mode)
 {
@@ -265,14 +371,34 @@ void VTextEdit::keyPressEvent(QKeyEvent *p_event)
     }
 }
 
-void VTextEdit::keyReleaseEvent(QKeyEvent *p_event)
+// add by zhangyw count is zero, change disable mode to enable
+void VTextEdit::recoverInputMethodEnabled()
 {
-    if (m_inputMethodDisabledAfterLeaderKey) {
-        if (--m_leaderKeyReleaseCount < 0) {
+    if (m_leaderKeyReleaseCount <= 0 && m_navigationKeyCount <= 0 ) {
+        if(m_inputMethodDisabledAfterLeaderKey || m_navigationMode ){
             m_inputMethodDisabledAfterLeaderKey = false;
+            m_navigationMode = false;
             setInputMethodEnabled(true);
         }
     }
+}
+// add by zhangyw count is zero, change disable mode to enable
+
+
+void VTextEdit::keyReleaseEvent(QKeyEvent *p_event)
+{
+    if( m_leaderKeyReleaseCount >0) {
+        m_leaderKeyReleaseCount--;
+    }
+    if(m_leaderKeyReleaseCount<=0){
+        if( m_navigationMode ==false && m_navigationModeWithLeaderKey &&
+                m_navigationModeKeysToSkip.m_key ==p_event->key() &&
+                m_navigationModeKeysToSkip.m_modifiers ==p_event->modifiers()) {
+            m_navigationKeyCount=2;
+            m_navigationMode=true;
+        }
+    }
+    recoverInputMethodEnabled();
 
     QTextEdit::keyReleaseEvent(p_event);
 }
@@ -358,6 +484,19 @@ void VTextEdit::handleDefaultKeyPress(QKeyEvent *p_event)
 bool VTextEdit::eventFilter(QObject *p_obj, QEvent *p_event)
 {
     switch (p_event->type()) {
+
+    //add by zhangyw leaderkey skip, navigationMode skip extra keys
+    case QEvent::FocusIn:
+    {
+        if( m_leaderKeyReleaseCount >0) {
+            m_leaderKeyReleaseCount=0;
+        }
+        if(m_navigationKeyCount>0){
+            m_navigationKeyCount=0;
+        }
+        recoverInputMethodEnabled();
+        break;
+    }
     case QEvent::ShortcutOverride:
     {
         // This event is sent when a shortcut is about to trigger.
@@ -367,9 +506,25 @@ bool VTextEdit::eventFilter(QObject *p_obj, QEvent *p_event)
         if (m_inputMethodEnabled && ke->key() == m_leaderKeyToSkip.m_key && ke->modifiers() == m_leaderKeyToSkip.m_modifiers) {
             setInputMethodEnabled(false);
             m_inputMethodDisabledAfterLeaderKey = true;
-            m_leaderKeyReleaseCount = m_leaderKeyToSkip.GetKeyReleaseCount();
+            m_leaderKeyReleaseCount = m_leaderKeyToSkip.GetKeyReleaseCount()+1; // release count with function key, extra 1 letter
             break;
         }
+
+        //add by zhangyw navigationmode shortcut without leaderkey
+        if (m_inputMethodEnabled && m_navigationModeWithLeaderKey==false && ke->key() == m_navigationModeKeysToSkip.m_key && ke->modifiers() ==m_navigationModeKeysToSkip.m_modifiers) {
+            setInputMethodEnabled(false);
+            m_navigationMode = true;
+            m_navigationKeyCount = 2; // key count without function key, extra 2 letters
+            break;
+        }
+
+        //add by zhangyw navigationmode keys can't deal with keyrelease, change here
+        if(ke->modifiers()==Qt::NoModifier && m_navigationKeyCount >0) {
+            m_navigationKeyCount--;
+            break;
+        }
+        recoverInputMethodEnabled();
+        //add by zhangyw navigationmode keys can't deal with keyrelease, change here
 
         if (m_inputMode && m_inputMode->stealShortcut(ke)) {
             ke->accept();
@@ -763,6 +918,10 @@ void VTextEdit::setInputMethodEnabled(bool p_enabled)
     if (m_inputMethodEnabled != p_enabled) {
         m_inputMethodEnabled = p_enabled;
         m_inputMethodDisabledAfterLeaderKey = false;
+        m_leaderKeyReleaseCount=0;
+
+        m_navigationKeyCount=0;
+        m_navigationMode=false;
 
         resetInputMethod();
     }
@@ -971,4 +1130,11 @@ void VTextEdit::setLeaderKeyToSkip(int p_key, Qt::KeyboardModifiers p_modifiers)
 {
     m_leaderKeyToSkip.m_key = p_key;
     m_leaderKeyToSkip.m_modifiers = p_modifiers;
+}
+
+void VTextEdit::setNavigationModeKeysToSkip(int p_key, Qt::KeyboardModifiers p_modifiers, bool withLeaderKey)
+{
+    m_navigationModeKeysToSkip.m_key = p_key;
+    m_navigationModeKeysToSkip.m_modifiers = p_modifiers;
+    m_navigationModeWithLeaderKey = withLeaderKey;
 }

@@ -121,6 +121,10 @@ namespace vte
                              FindFlags p_flags,
                              int p_start = 0);
 
+        QTextCursor matchText(const QString &p_text,
+                             FindFlags p_flags,
+                              int p_start = 0,
+                              int p_end = -1);
         void setInputMode(const QSharedPointer<AbstractInputMode> &p_mode);
         QSharedPointer<AbstractInputMode> getInputMode() const;
 
@@ -173,6 +177,9 @@ namespace vte
 
         void setLeaderKeyToSkip(int p_key, Qt::KeyboardModifiers p_modifiers);
 
+        //add by zhangyw leaderkey skip, navigationMode skip extra keys
+        void setNavigationModeKeysToSkip(int p_key, Qt::KeyboardModifiers p_modifiers, bool withLeaderKey);
+        //add by zhangyw leaderkey skip, navigationMode skip extra keys
         static void forceInputMethodDisabled(bool p_force);
 
     signals:
@@ -260,6 +267,11 @@ namespace vte
                                        QTextDocument::FindFlags p_flags,
                                        int p_start);
 
+        template <typename T>
+        QTextCursor matchTextInDocument(const T &p_text,
+                                       QTextDocument::FindFlags p_flags,
+                                        int p_start,
+                                        int p_end);
         QString getSelectedText(const Selection &p_selection) const;
 
         // Return true if the event is handled.
@@ -284,6 +296,7 @@ namespace vte
 
         static QChar matchingClosingBracket(const QChar &p_open);
 
+        void recoverInputMethodEnabled();
         int m_cursorLine = -1;
 
         // Input mode.
@@ -332,15 +345,18 @@ namespace vte
         // which stops the triggering of the whole key sequence.
         // We will disable the input method after `Ctrl+G` is pressed to handle this case trickily.
         Key m_leaderKeyToSkip;
+        Key m_navigationModeKeysToSkip;
 
         bool m_inputMethodDisabledAfterLeaderKey = false;
 
         // keyReleaseEvent count needed to release the leader key.
         int m_leaderKeyReleaseCount = 0;
-
         static bool s_forceInputMethodDisabled;
+        int m_navigationKeyCount = 0;
+        bool m_navigationMode = false;
+        bool m_navigationModeWithLeaderKey = true;
     };
-
+#if 0
     template <typename T>
     QList<QTextCursor> VTextEdit::findAllTextInDocument(const T &p_text,
                                                         QTextDocument::FindFlags p_flags,
@@ -373,6 +389,7 @@ namespace vte
 
         return results;
     }
+#endif
 
     template <typename T>
     QTextCursor VTextEdit::findTextInDocument(const T &p_text,
@@ -420,5 +437,25 @@ namespace vte
             return cursor;
         }
     }
+
+//add by zhangyw for newline
+    template <typename T>
+        QTextCursor VTextEdit::matchTextInDocument(const T &p_text,
+                                                  QTextDocument::FindFlags p_flags,
+                                                  int p_start,
+                                                  int p_end)
+        {
+            auto doc = document();
+            int start = p_start;
+            int end = p_end == -1 ? doc->characterCount() + 1 : p_end;
+            QTextCursor cursor;
+
+            cursor = doc->find(p_text, start, p_flags);
+            if (start < end){
+                return cursor;
+            }
+            return QTextCursor();
+        }
+//add by zhangyw for newline
 }
 #endif

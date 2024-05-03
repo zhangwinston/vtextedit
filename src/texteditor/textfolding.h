@@ -115,7 +115,7 @@ namespace vte
             // Sorted and non-overlapping.
             FoldingRange::Vector m_nestedRanges;
 
-            FoldingRangeFlags m_flags;
+            FoldingRangeFlags m_flags = 0;
 
             // Id of this range.
             qint64 m_id = InvalidRangeId;

@@ -128,6 +128,7 @@ namespace vte
         void enterInsertModeIfApplicable();
 
         void insertText(const QString &p_text);
+        void indsertTextWithNewline(const QString &p_text);
 
         int zoomDelta() const;
 
@@ -168,6 +169,10 @@ namespace vte
         void updateIndicatorsBorder();
 
         void setLeaderKeyToSkip(int p_key, Qt::KeyboardModifiers p_modifiers);
+
+        //add by zhangyw leaderkey skip, navigationMode skip extra keys
+        void setNavigationModeKeyToSkip(int p_key, Qt::KeyboardModifiers p_modifiers, bool withLeaderkey);
+        //add by zhangyw leaderkey skip, navigationMode skip extra keys
 
         // Custom search paths for KSyntaxHighlighting Definition files.
         // Will search ./syntax and ./themes folder.
