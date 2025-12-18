@@ -62,8 +62,8 @@ struct MarkdownParseResult {
 
   QVector<QVector<HLUnit>> m_blocksHighlights;
 
-  // All image link regions.
-  QVector<ElementRegion> m_imageRegions;
+  // All image link regions with cmark-parsed URL and =WxH dimensions.
+  QVector<ImageLinkInfo> m_imagePreviewInfos;
 
   // All header regions.
   // Sorted by start position.

@@ -34,6 +34,10 @@ public:
 
   InplacePreviewSources m_inplacePreviewSources;
 
+  // Extra leading for lines inside fenced code blocks, as a factor of font height.
+  // Regular text line spacing is controlled by TextEditorConfig::m_lineSpacing.
+  qreal m_leading_space_line_code_block_factor = 0.0;
+
   // Whether use WebCodeBlockHighlighter or KSyntaxCodeBlockHighlighter for code
   // block syntax highlight.
   bool m_webCodeBlockHighlighterEnabled = true;

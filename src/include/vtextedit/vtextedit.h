@@ -93,6 +93,7 @@ public:
   // Will search and wrap.
   QTextCursor findText(const QString &p_text, FindFlags p_flags, int p_start = 0);
 
+  QTextCursor matchText(const QString &p_text, FindFlags p_flags, int p_start = 0, int p_end = -1);
   void setInputMode(const QSharedPointer<AbstractInputMode> &p_mode);
   QSharedPointer<AbstractInputMode> getInputMode() const;
 
@@ -125,13 +126,16 @@ public:
 
   void checkCenterCursor();
 
-  // Whether the application focus is inside a widget embedded into the
-  // viewport (an in-place preview widget is the only such child). When it is,
-  // the editor's own caret is not what the user is working on, so automatic
-  // scroll-to-caret has to be skipped: an in-place edit rewrites the document
-  // and would otherwise drag the viewport to the editor's caret, away from the
-  // widget being typed in.
+  // True when keyboard focus is on an inplace preview widget parented to the
+  // viewport (not on the editor itself). Callers use this to skip caret
+  // scrolling that would yank the view away from an active preview sheet.
   bool isViewportWidgetFocused() const;
+
+  // Keep the cursor at least @p_marginLines above the viewport bottom by
+  // scrolling when needed. Used so downward movement starts scrolling before
+  // the cursor reaches the last visible line (e.g. inplace preview under the
+  // last block stays reachable).
+  void ensureBottomCursorMargin(int p_marginLines);
 
   void setCenterCursor(CenterCursor p_centerCursor);
 
@@ -158,6 +162,10 @@ public:
 
   void setLeaderKeyToSkip(int p_key, Qt::KeyboardModifiers p_modifiers);
 
+  // add by zhangyw leaderkey skip, navigationMode skip extra keys
+  void setNavigationModeKeysToSkip(int p_key, Qt::KeyboardModifiers p_modifiers,
+                                   bool withLeaderKey);
+  // add by zhangyw leaderkey skip, navigationMode skip extra keys
   static void forceInputMethodDisabled(bool p_force);
 
 signals:
@@ -242,6 +250,9 @@ private:
   template <typename T>
   QTextCursor findTextInDocument(const T &p_text, QTextDocument::FindFlags p_flags, int p_start);
 
+  template <typename T>
+  QTextCursor matchTextInDocument(const T &p_text, QTextDocument::FindFlags p_flags, int p_start,
+                                  int p_end);
   QString getSelectedText(const Selection &p_selection) const;
 
   // Return true if the event is handled.
@@ -268,6 +279,13 @@ private:
 
   void updateContentWidthMargins();
 
+  // Match QTextEditPrivate::relayoutDocument after viewport margins change.
+  // setViewportMargins only resizes the viewport child and does not re-enter
+  // QTextEdit::resizeEvent with a widget-size change, so pageSize can stick at
+  // the pre-margin width (readable-width "too wide" + horizontal scrollbar).
+  void syncDocumentPageWidthToViewport();
+
+  void recoverInputMethodEnabled();
   int m_cursorLine = -1;
 
   // Input mode.
@@ -289,6 +307,11 @@ private:
   QElapsedTimer m_cursorPositionChangeTime;
 
   const int c_updateCursorWidthTimerInterval = 50;
+
+  // Start scrolling on Key_Down / downward cursor moves this many lines before
+  // the viewport bottom, so content under the last line (e.g. image preview)
+  // can be revealed without waiting until the caret is stuck on the last line.
+  static const int c_bottomCursorMarginLines = 5;
 
   CenterCursor m_centerCursor = CenterCursor::NeverCenter;
 
@@ -317,6 +340,7 @@ private:
   // the whole key sequence. We will disable the input method after `Ctrl+G` is
   // pressed to handle this case trickily.
   Key m_leaderKeyToSkip;
+  Key m_navigationModeKeysToSkip;
 
   bool m_inputMethodDisabledAfterLeaderKey = false;
 
@@ -327,12 +351,17 @@ private:
   int m_maxContentWidth = 0;
 
   static bool s_forceInputMethodDisabled;
+  int m_navigationKeyCount = 0;
+  bool m_navigationMode = false;
+  bool m_navigationModeWithLeaderKey = true;
 };
-
+#if 0
 template <typename T>
 QList<QTextCursor> VTextEdit::findAllTextInDocument(const T &p_text,
-                                                    QTextDocument::FindFlags p_flags, int p_start,
-                                                    int p_end) {
+                                                        QTextDocument::FindFlags p_flags,
+                                                        int p_start,
+                                                        int p_end)
+    {
   QList<QTextCursor> results;
   auto doc = document();
   int start = p_start;
@@ -359,6 +388,7 @@ QList<QTextCursor> VTextEdit::findAllTextInDocument(const T &p_text,
 
   return results;
 }
+#endif
 
 template <typename T>
 QTextCursor VTextEdit::findTextInDocument(const T &p_text, QTextDocument::FindFlags p_flags,
@@ -404,5 +434,22 @@ QTextCursor VTextEdit::findTextInDocument(const T &p_text, QTextDocument::FindFl
     return cursor;
   }
 }
+
+// add by zhangyw for newline
+template <typename T>
+QTextCursor VTextEdit::matchTextInDocument(const T &p_text, QTextDocument::FindFlags p_flags,
+                                           int p_start, int p_end) {
+  auto doc = document();
+  int start = p_start;
+  int end = p_end == -1 ? doc->characterCount() + 1 : p_end;
+  QTextCursor cursor;
+
+  cursor = doc->find(p_text, start, p_flags);
+  if (start < end) {
+    return cursor;
+  }
+  return QTextCursor();
+}
+// add by zhangyw for newline
 } // namespace vte
 #endif

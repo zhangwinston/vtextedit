@@ -617,9 +617,24 @@ void TestMarkdownParser::testImages() {
 
   QCOMPARE(countElements(result, HLT_IMAGE), 1);
 
-  QCOMPARE(result.imageRegions.size(), 1);
-  QCOMPARE(result.imageRegions[0].m_startPos, 0);
-  QCOMPARE(result.imageRegions[0].m_endPos, 15);
+  QCOMPARE(result.imageElements.size(), 1);
+  const auto &image = result.imageElements.first();
+  QCOMPARE(image.m_startPos, 0);
+  QCOMPARE(image.m_endPos, 15);
+  QCOMPARE(image.m_destination, QStringLiteral("img.png"));
+}
+
+void TestMarkdownParser::testImageWithSizeSuffixAndUnderscoreName() {
+  const QString input =
+      QStringLiteral("![](vx_assets/nb/1178700211048_1.png =800x)\n");
+  auto result = parse(input);
+
+  QCOMPARE(countElements(result, HLT_IMAGE), 1);
+  QCOMPARE(result.imageElements.size(), 1);
+  const auto &image = result.imageElements.first();
+  QCOMPARE(image.m_destination, QStringLiteral("vx_assets/nb/1178700211048_1.png"));
+  QCOMPARE(image.m_width, 800);
+  QCOMPARE(image.m_height, 0);
 }
 
 void TestMarkdownParser::testHTMLInline() {

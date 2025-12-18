@@ -86,6 +86,7 @@ add_library(VTextEdit SHARED
     inputmode/viinputmodefactory.cpp inputmode/viinputmodefactory.h
     inputmode/vscodeinputmode.cpp inputmode/vscodeinputmode.h
     inputmode/vscodeinputmodefactory.cpp inputmode/vscodeinputmodefactory.h
+    markdowneditor/blocktextdata.cpp
     markdowneditor/codeblockhighlighter.cpp
     markdowneditor/documentresourcemgr.cpp markdowneditor/documentresourcemgr.h
     markdowneditor/editormarkdownhighlighter.cpp markdowneditor/editormarkdownhighlighter.h
@@ -105,6 +106,7 @@ add_library(VTextEdit SHARED
     markdowneditor/previewbuilder.h
     markdowneditor/previewfromast.cpp markdowneditor/previewfromast.h
     markdowneditor/previewlogging.cpp markdowneditor/previewlogging.h
+    markdowneditor/optimized_blocktextdata.cpp
     markdowneditor/previewdata.cpp
     markdowneditor/previewmgr.cpp
     markdowneditor/previewwidget.cpp

@@ -182,8 +182,8 @@ private:
     // Full URL of the link.
     QString m_linkUrl;
 
-    // Declared size from the `=WxH` extension. 0 means unspecified for that
-    // axis, in which case MarkdownUtils::scaleImage() keeps the aspect ratio.
+    // Declared size from the `=WxH` extension. 0 means unspecified for that axis,
+    // in which case MarkdownUtils::scaleImage() keeps the aspect ratio.
     int m_width = 0;
 
     int m_height = 0;

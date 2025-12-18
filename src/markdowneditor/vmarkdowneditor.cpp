@@ -125,6 +125,9 @@ void VMarkdownEditor::setupSyntaxHighlighter() {
                               codeBlockHighlighter, highlighterConfig, m_mathBlockHighlighter);
   updateSpellCheck();
   connect(getHighlighter(), &MarkdownHighlighter::highlightCompleted, this, [this]() {
+    // Code-block userState is assigned during parse/highlight. The first layout
+    // often runs before that, so re-apply leading with the correct states.
+    documentLayout()->relayout();
     m_textEdit->updateCursorWidth();
     if (m_textEdit->isViewportWidgetFocused()) {
       // An in-place preview widget holds the focus. This re-parse is most
@@ -136,6 +139,12 @@ void VMarkdownEditor::setupSyntaxHighlighter() {
 
     m_textEdit->ensureCursorVisible();
     m_textEdit->checkCenterCursor();
+    // Center-cursor may leave a blockwise inplace preview clipped under the
+    // last line; reveal as much of it as possible while keeping the cursor on
+    // screen. setupPreviewMgr() runs after this connect during construction.
+    if (m_previewMgrInterface) {
+      m_previewMgrInterface->ensureBlockPreviewVisible();
+    }
   });
 }
 
@@ -149,6 +158,13 @@ void VMarkdownEditor::setupDocumentLayout() {
 
   connect(m_textEdit, &VTextEdit::cursorWidthChanged, this,
           [this]() { documentLayout()->setCursorWidth(m_textEdit->cursorWidth()); });
+  connect(m_textEdit, &VTextEdit::cursorPositionChanged, this, [this]() {
+    QTextCursor cursor(m_textEdit->textCursor());
+    if (cursor.blockNumber() != documentLayout()->cursorBlockNumber()) {
+      documentLayout()->setCursorBlockNumber(cursor.block());
+      m_textEdit->viewport()->update();
+    }
+  });
 }
 
 TextDocumentLayout *VMarkdownEditor::documentLayout() const {
@@ -164,6 +180,13 @@ void VMarkdownEditor::setupPreviewMgr() {
   connect(m_previewMgr, &PreviewMgr::requestUpdateImageLinks, getHighlighter(),
           &MarkdownHighlighter::updateHighlight);
 
+  // Cursor navigation (unlike preview relayout) used to leave a blockwise
+  // preview clipped under the last line; re-check after every caret move.
+  connect(m_textEdit, &QTextEdit::cursorPositionChanged, this, [this]() {
+    if (m_previewMgrInterface) {
+      m_previewMgrInterface->ensureBlockPreviewVisible();
+    }
+  });
   // Interactive preview widgets. The host is an internal QObject child so no
   // exported class needs a new data member.
   auto host = new InteractivePreviewHost(this);
@@ -224,6 +247,9 @@ void VMarkdownEditor::updateFromConfig() {
 
   documentLayout()->setConstrainPreviewWidthEnabled(
       m_config->m_constrainInplacePreviewWidthEnabled);
+
+  documentLayout()->setLeadingSpaceOfCodeBlockFactor(
+      m_config->m_leading_space_line_code_block_factor);
 
   updateInplacePreviewSources();
 

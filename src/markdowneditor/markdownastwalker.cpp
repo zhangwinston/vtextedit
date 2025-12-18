@@ -141,7 +141,6 @@ static void addRegion(ASTWalkResult &p_result, int p_style, int p_absStart, int 
   ElementRegion region(p_absStart, p_absEnd);
   switch (p_style) {
   case STYLE_IMAGE:
-    p_result.imageRegions.append(region);
     break;
   case STYLE_H1:
   case STYLE_H1 + 1:

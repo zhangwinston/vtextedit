@@ -144,11 +144,14 @@ public:
   QRectF blockBoundingRect(const QTextBlock &p_block) const Q_DECL_OVERRIDE;
 
   void setCursorWidth(int p_width);
+  void setCursorBlockNumber(const QTextBlock &p_block);
 
   int cursorWidth() const;
+  int cursorBlockNumber() const;
 
   qreal getLeadingSpaceOfLine() const;
   void setLeadingSpaceOfLine(qreal p_leading);
+  void setLeadingSpaceOfCodeBlockFactor(qreal p_leading);
 
   // Return the block number which contains point @p_point.
   // If @p_point is at the border, returns the block below.
@@ -266,7 +269,8 @@ private:
   // claim may coexist with such an image.
   qreal layoutLines(const QTextBlock &p_block, QTextLayout *p_tl, QVector<Marker> &p_markers,
                     QVector<ImagePaintData> &p_images, QVector<WidgetPaintData> &p_widgets,
-                    QVector<Marker> &p_widgetMarkers, qreal p_availableWidth, qreal p_height);
+                    QVector<Marker> &p_widgetMarkers, qreal p_availableWidth, qreal p_height,
+                    qreal p_leadingSpace);
 
   // Layout inline image in a line.
   // @p_data: if NULL, means just layout a marker.
@@ -400,22 +404,25 @@ private:
   // Height of all the blocks of document.
   qreal m_height = 0;
 
-  // Set the leading space of a line.
+  // Leading space for regular text lines (from TextEditorConfig::m_lineSpacing).
   qreal m_leadingSpaceOfLine = 0;
 
+  // Factor of font height used as leading inside fenced code blocks.
+  qreal m_leadingSpaceOfCodeBlockFactor = 0;
   // Block count of the document.
   int m_blockCount = 0;
 
   // Width used only to paint the cursor.
   int m_cursorWidth = 1;
 
+  int m_cursorBlockNumber = -1;
   // Right margin for cursor.
   qreal m_cursorMargin = 4;
 
   DocumentResourceMgr *m_resourceMgr = nullptr;
 
   // Whether allow preview of block.
-  bool m_previewEnabled = false;
+  bool m_previewEnabled = true;
 
   // Whether constrain the width of preview to the width of the page.
   bool m_constrainPreviewWidthEnabled = false;
