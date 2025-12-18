@@ -1,0 +1,149 @@
+{
+  "knowledge_points": [
+    {
+      "aliases": [
+        "gitlink 冲突",
+        "子模块 rebase"
+      ],
+      "applicable_categories": [
+        "git",
+        "子模块"
+      ],
+      "applicable_task_categories": [
+        "resolve-git-rebase-conflicts",
+        "git-submodule-maintenance"
+      ],
+      "artifact_types": [
+        "knowledge"
+      ],
+      "example_queries": [
+        "rebase 报 Could not read 某个 sha 怎么处理",
+        "父仓 rebase 卡在 libs/vtextedit 子模块冲突"
+      ],
+      "negative_cues": [
+        "普通文件内容冲突"
+      ],
+      "path": "playbooks/truth/vnote-nested-submodule-rebase-gitlink-mapping.md",
+      "slug": "vnote-nested-submodule-rebase-gitlink-mapping",
+      "summary": "vnote→libs/vtextedit→libs/cmark 双层子模块变基时 gitlink 冲突需先变基子模块再用 update-index --cacheinfo 按旧新 sha 映射逐 pick 解决。",
+      "title": "vnote 双层子模块仓库 rebase 的 gitlink 手动映射",
+      "trigger_phrases": [
+        "Could not read",
+        "子模组内的递归合并",
+        "libs/vtextedit 冲突",
+        "update-index --cacheinfo"
+      ],
+      "updated_at": "2026-09-28"
+    },
+    {
+      "aliases": [
+        "fork 推送链",
+        "子模块 fork 拓扑"
+      ],
+      "applicable_categories": [
+        "git",
+        "子模块管理",
+        "GitHub"
+      ],
+      "applicable_task_categories": [
+        "resolve-git-rebase-conflicts",
+        "git-submodule-maintenance",
+        "ci-fix"
+      ],
+      "artifact_types": [
+        "knowledge"
+      ],
+      "example_queries": [
+        "因主库没有权限，请 fork 一个 repo 并将修改合入 refine 分支",
+        "子模块需要修改变更时如何推送"
+      ],
+      "negative_cues": [
+        "拥有上游仓库直接推送权限",
+        "子模块仅升级指针无需改动内容"
+      ],
+      "path": "playbooks/truth/vnote-refine-submodule-fork-chain.md",
+      "slug": "vnote-refine-submodule-fork-chain",
+      "summary": "vnote refine 链上需修改的子模块（libgit2、vxcore、vtextedit）一律走 zhangwinston fork 的 refine 分支并从最内层逐层向外推送；仅引用的 cmark 保持上游钉 44e388cc。",
+      "title": "vnote refine 分支的子模块 fork 拓扑与推送顺序",
+      "trigger_phrases": [
+        "没有权限推送主库",
+        "fork 一个 repo 合入修改",
+        "子模块修改变更推送",
+        "Could not read 子模组"
+      ],
+      "updated_at": "2026-09-30"
+    },
+    {
+      "aliases": [
+        "验证环境限制"
+      ],
+      "applicable_categories": [
+        "环境事实",
+        "验证"
+      ],
+      "applicable_task_categories": [
+        "resolve-git-rebase-conflicts",
+        "verify-code-changes"
+      ],
+      "artifact_types": [
+        "knowledge"
+      ],
+      "example_queries": [
+        "改完代码想本地编译确认一下",
+        "写个 python 脚本做括号平衡检查"
+      ],
+      "negative_cues": [
+        "已存在可用构建目录的环境"
+      ],
+      "path": "playbooks/truth/vnote-workspace-no-local-build-python36.md",
+      "slug": "vnote-workspace-no-local-build-python36",
+      "summary": "该工作区无构建目录与 Qt 前缀、仅 /usr/bin/cmake，冲突修复只能结构校验；且 python3.6 的 subprocess.run 不支持 capture_output。",
+      "title": "本工作区无法本地编译验证且系统 python3 为 3.6",
+      "trigger_phrases": [
+        "无法编译验证",
+        "capture_output TypeError",
+        "build 目录不存在"
+      ],
+      "updated_at": "2026-09-28"
+    },
+    {
+      "aliases": [
+        "curl OpenSSL 兼容",
+        "vxcore 依赖钉"
+      ],
+      "applicable_categories": [
+        "构建系统",
+        "CI",
+        "依赖管理"
+      ],
+      "applicable_task_categories": [
+        "resolve-git-rebase-conflicts",
+        "ci-fix",
+        "dependency-management"
+      ],
+      "artifact_types": [
+        "knowledge"
+      ],
+      "example_queries": [
+        "CI 里 libcurl 编译报 OpenSSL 3.0 required 怎么处理",
+        "升级 vxcore 后 curl 相关 CI 失败"
+      ],
+      "negative_cues": [
+        "所有目标环境均为 OpenSSL 3.x",
+        "项目不使用 WebDAV/curl"
+      ],
+      "path": "playbooks/truth/vxcore-curl-pin-openssl-1x-compat.md",
+      "slug": "vxcore-curl-pin-openssl-1x-compat",
+      "summary": "vxcore 钉 curl 8.17.0 因 curl ≥8.18.0 硬性要求 OpenSSL 3.0，rockylinux:8 CI 腿只有 1.1.1k；且 CURL_USE_OPENSSL 被普通变量遮蔽无法用 -D 关闭。",
+      "title": "vxcore curl 钉 8.17.0 的 OpenSSL 1.x 兼容约束",
+      "trigger_phrases": [
+        "OpenSSL 3.0.0 or greater required",
+        "OPENSSL_VERSION_STRING undeclared",
+        "curl 编译失败",
+        "rockylinux:8 CI 失败"
+      ],
+      "updated_at": "2026-09-30"
+    }
+  ],
+  "version": 1
+}
