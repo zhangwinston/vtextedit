@@ -18,10 +18,13 @@ set(TEXTEDIT_FOLDER ${SRC_FOLDER}/textedit)
 
 add_executable(test_markdownfolding
     ${SRC_FOLDER}/include/vtextedit/textrange.h
+    ${SRC_FOLDER}/include/vtextedit/blocktextdata.h
     ${EDITOR_FOLDER}/extraselectionmgr.cpp ${EDITOR_FOLDER}/extraselectionmgr.h
     ${EDITOR_FOLDER}/textfolding.cpp ${EDITOR_FOLDER}/textfolding.h
     ${MDEDITOR_FOLDER}/markdownfoldingprovider.cpp ${MDEDITOR_FOLDER}/markdownfoldingprovider.h
     ${MDEDITOR_FOLDER}/previewlogging.cpp ${MDEDITOR_FOLDER}/previewlogging.h
+    ${MDEDITOR_FOLDER}/blocktextdata.cpp
+    ${MDEDITOR_FOLDER}/optimized_blocktextdata.cpp
     ${MDEDITOR_FOLDER}/textdocumentlayout.cpp ${MDEDITOR_FOLDER}/textdocumentlayout.h
     ${MDEDITOR_FOLDER}/documentresourcemgr.cpp ${MDEDITOR_FOLDER}/documentresourcemgr.h
     ${MDEDITOR_FOLDER}/previewdata.cpp
