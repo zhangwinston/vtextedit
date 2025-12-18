@@ -97,7 +97,7 @@ void WebCodeBlockHighlighter::parseXmlAndMatch(const QString &p_html, const QStr
     }
 
     default:
-      qWarning() << "unknown token" << reader.tokenString();
+      // qWarning() << "unknown token" << reader.tokenString();
       failed = true;
       break;
     }
@@ -187,7 +187,7 @@ bool WebCodeBlockHighlighter::parseSpanElement(QXmlStreamReader &p_reader,
     }
 
     default:
-      qWarning() << "unknown token" << p_reader.tokenString();
+      // qWarning() << "unknown token" << p_reader.tokenString();
       failed = true;
       break;
     }

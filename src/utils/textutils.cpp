@@ -209,3 +209,22 @@ bool TextUtils::isEscaped(const QString &p_text, int p_offset, const QChar &p_es
 
   return (escapeCnt % 2) == 1;
 }
+
+QStringList TextUtils::listWithNewline(const QString &p_text) {
+  int index = 0;
+  QStringList result;
+
+  int start_pos = 0;
+  while ((index = p_text.indexOf("\\n", index)) != -1) {
+    if (index > start_pos) {
+      QString str_item = p_text.mid(start_pos, index - start_pos);
+      result.append(str_item);
+    }
+    result.append("\\n");
+    ++index;
+    ++index;
+    start_pos = index;
+  }
+  // ²»°üº¬newline×Ö·û£¬ÔòÖ±½Ó·µ»Ø
+  return result;
+}

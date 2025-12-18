@@ -31,6 +31,10 @@ public:
 
   void ensureCursorVisible() Q_DECL_OVERRIDE;
 
+  // Scroll to reveal a blockwise inplace preview under the cursor when it
+  // extends past the viewport bottom, without pushing the cursor off-screen.
+  void ensureBlockPreviewVisible();
+
 private:
   VMarkdownEditor *m_editor = nullptr;
 

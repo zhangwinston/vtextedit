@@ -45,6 +45,21 @@ void NetworkAccess::requestAsync(const QUrl &p_url) {
   m_netAccessMgr.get(NetworkUtils::networkRequest(p_url));
 }
 
+// zhangyw add download image from special site
+void NetworkAccess::requestAsync(const QUrl &p_url, const RawHeaderPairs &p_rawHeader) {
+  if (!p_url.isValid()) {
+    return;
+  }
+
+  auto nq(NetworkUtils::networkRequest(p_url));
+  for (const auto &header : p_rawHeader) {
+    nq.setRawHeader(header.first, header.second);
+  }
+
+  m_netAccessMgr.get(nq);
+}
+// zhangyw add download image from special site
+
 NetworkReply NetworkAccess::request(const QUrl &p_url) { return request(p_url, RawHeaderPairs()); }
 
 NetworkReply NetworkAccess::request(const QUrl &p_url, const RawHeaderPairs &p_rawHeader) {
