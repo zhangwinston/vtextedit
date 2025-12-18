@@ -1,0 +1,55 @@
+{
+  "playbooks": [
+    {
+      "aliases": [
+        "rebase conflict resolution",
+        "变基冲突处理",
+        "gitlink 冲突解决"
+      ],
+      "applicable_categories": [
+        "git",
+        "版本控制",
+        "代码合并",
+        "子模块管理",
+        "CI"
+      ],
+      "applies_when": [
+        "长特性分支变基到 master 需逐 pick 处理多轮冲突",
+        "仓库含子模块且 pick 涉及指针 bump",
+        "双分支存在同主题不同内容的孪生提交",
+        "变基后需推送远端并经 CI 验证（子模块可能无上游推送权限）"
+      ],
+      "artifact_types": [
+        "playbook"
+      ],
+      "do_not_use_when": [
+        "单文件少量冲突直接手工编辑",
+        "只想 abort/重置 rebase",
+        "无终态参照且无法判定取舍的合并"
+      ],
+      "example_queries": [
+        "当前目录 rebase master 出现一些待处理的冲突，请分析并处理一下",
+        "请继续处理父目录下的 rebase 冲突"
+      ],
+      "negative_cues": [
+        "git merge 只有一两个文件冲突",
+        "帮我 abort 这次 rebase"
+      ],
+      "path": "playbooks/raw/resolve-git-rebase-conflicts.md",
+      "summary": "以孪生提交 patch-id、own-diff 判定与并集合并逐轮解决长分支变基冲突；子模块 gitlink 用 update-index 手动映射且需按并集需求重验指针，最后经 fork 推送链与 CI 闭环验证。",
+      "task_type_slug": "resolve-git-rebase-conflicts",
+      "task_type_title": "解决 Git Rebase 冲突（长分支变基含子模块）",
+      "trigger_phrases": [
+        "rebase master 出现冲突",
+        "处理 rebase 冲突",
+        "变基冲突请分析并处理",
+        "子模块指针冲突",
+        "Could not read 子模组递归合并",
+        "父目录 rebase 冲突",
+        "rebase 后 CI 编译失败"
+      ],
+      "updated_at": "2026-09-30"
+    }
+  ],
+  "version": 1
+}

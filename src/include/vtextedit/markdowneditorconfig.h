@@ -178,6 +178,13 @@ public:
   // All concealment rules are opt-in; source text is never changed.
   MarkdownConcealRules m_concealRules;
 
+  // Conceal only destinations longer than this many grapheme clusters.
+  int m_concealLengthThreshold = 20;
+
+  // Extra leading for lines inside fenced code blocks, as a factor of font height.
+  // Regular text line spacing is controlled by TextEditorConfig::m_lineSpacing.
+  qreal m_leading_space_line_code_block_factor = 0.0;
+
   // Native KSyntaxHighlighting is the default for code blocks. Set true before
   // constructing the editor to use the host-provided external/web highlighter.
   bool m_webCodeBlockHighlighterEnabled = false;

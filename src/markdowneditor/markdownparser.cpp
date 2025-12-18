@@ -70,6 +70,7 @@ MarkdownParserWorker::parseMarkdown(const QSharedPointer<MarkdownParseConfig> &p
     result->m_concealRanges = std::move(walkResult.concealRanges);
     result->m_imageRegions = std::move(walkResult.imageRegions);
     result->m_links = std::move(walkResult.links);
+    result->m_imagePreviewInfos = md::buildImageLinks(walkResult.imageElements);
     result->m_headerRegions = std::move(walkResult.headerRegions);
     result->m_codeBlockRegions = std::move(walkResult.codeBlockRegions);
     result->m_inlineEquationRegions = std::move(walkResult.inlineEquationRegions);
@@ -152,6 +153,7 @@ MarkdownParser::parse(const QSharedPointer<MarkdownParseConfig> &p_config) {
     result->m_concealRanges = std::move(walkResult.concealRanges);
     result->m_imageRegions = std::move(walkResult.imageRegions);
     result->m_links = std::move(walkResult.links);
+    result->m_imagePreviewInfos = md::buildImageLinks(walkResult.imageElements);
     result->m_headerRegions = std::move(walkResult.headerRegions);
     result->m_codeBlockRegions = std::move(walkResult.codeBlockRegions);
     result->m_inlineEquationRegions = std::move(walkResult.inlineEquationRegions);
