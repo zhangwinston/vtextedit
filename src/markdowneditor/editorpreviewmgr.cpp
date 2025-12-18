@@ -3,8 +3,10 @@
 #include <QScrollBar>
 #include <QTextBlock>
 #include <QTextCursor>
+#include <QAbstractTextDocumentLayout>
 #include <QTextDocument>
 
+#include <vtextedit/previewdata.h>
 #include <vtextedit/texteditorconfig.h>
 #include <vtextedit/texteditutils.h>
 #include <vtextedit/vmarkdowneditor.h>
@@ -153,4 +155,60 @@ void EditorPreviewMgr::ensureCursorVisible() {
   }
 
   textEdit->ensureCursorVisible();
+  ensureBlockPreviewVisible();
+}
+
+void EditorPreviewMgr::ensureBlockPreviewVisible() {
+  auto *edit = m_editor->getTextEdit();
+  const QTextBlock block = edit->textCursor().block();
+  if (!block.isValid()) {
+    return;
+  }
+
+  const auto &previewData = BlockPreviewData::get(block)->getPreviewData();
+  bool hasBlockPreview = false;
+  for (const PreviewData *data : previewData) {
+    const PreviewImageData *img = data ? data->getImageData() : nullptr;
+    if (img && !img->m_inline) {
+      hasBlockPreview = true;
+      break;
+    }
+  }
+  if (!hasBlockPreview) {
+    return;
+  }
+
+  auto *vbar = edit->verticalScrollBar();
+  if (!vbar) {
+    return;
+  }
+
+  const int room = vbar->maximum() - vbar->value();
+  if (room <= 0) {
+    return;
+  }
+
+  auto *layout = edit->document()->documentLayout();
+  if (!layout) {
+    return;
+  }
+
+  // blockBoundingRect includes the blockwise preview below the text line.
+  const QRectF blockRect = layout->blockBoundingRect(block);
+  const int top = TextEditUtils::contentOffsetAtTop(edit);
+  const int overflow = qRound(blockRect.bottom()) - top - edit->viewport()->height();
+  if (overflow <= 0) {
+    return;
+  }
+
+  // Reveal the full preview when possible. Keep the caret line on screen so a
+  // subsequent ensureCursorVisible does not pull the view back.
+  int delta = qMin(overflow, room);
+  const int cursorTop = edit->cursorRect().top();
+  if (cursorTop >= 0) {
+    delta = qMin(delta, cursorTop);
+  }
+  if (delta > 0) {
+    vbar->setValue(vbar->value() + delta);
+  }
 }

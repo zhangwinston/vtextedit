@@ -40,6 +40,7 @@ private slots:
   void testLinks();
   void testAutoLinks();
   void testImages();
+  void testImageWithSizeSuffixAndUnderscoreName();
   void testHTMLInline();
   void testHTMLEntities();
   void testComments();
