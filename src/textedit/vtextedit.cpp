@@ -184,17 +184,81 @@ QList<QTextCursor> VTextEdit::findAllText(const QString &p_text, FindFlags p_fla
     return QList<QTextCursor>();
   }
 
-  auto flags = findFlagsToDocumentFindFlags(p_flags);
+  QList<QTextCursor> results;
+  int end = p_end == -1 ? document()->characterCount() + 1 : p_end;
+  int start = p_start;
+  int matched_start = -1;
+  int matched_end = -1;
+
   if (p_flags & FindFlag::RegularExpression) {
-    QRegularExpression regex(p_text);
-    if (!regex.isValid()) {
-      return QList<QTextCursor>();
+    QStringList testList = TextUtils::listWithNewline(p_text);
+    if (!testList.isEmpty()) {
+      int start_first = p_start;
+      int matched_list_start = -1;
+      int matched_list_end = -1;
+      while (start < end) {
+        for (int i = 0; i < testList.count(); ++i) {
+          QTextCursor cursor = matchText(testList.at(i), p_flags, start, end);
+          if (cursor.isNull() == false) {
+            start = cursor.selectionEnd(); // Æ¥Åä³É¹¦µÄËÑË÷Î²²¿£¬++iÑ­»·µÄÆðÊ¼µØÖ·
+            matched_start = cursor.selectionStart();
+            matched_end = cursor.selectionEnd();
+            if (i == 0) { // Æ¥ÅäÆðÊ¼Î»ÖÃ
+              matched_list_start = matched_start;
+              matched_list_end = matched_start;
+
+              start_first =
+                  start; // µÚ1ÏîÆ¥Åä³É¹¦µÄËÑË÷Î²²¿£¬ÁÙÊ±±£´æ£¬ºóÃæ¿ÉÄÜÒªÖØÐÂ½øÈëforÑ­»·ÆðÊ¼µØÖ·
+              if (matched_start == matched_end) // ³¤¶ÈÎª0µ÷ÕûËÑË÷Î»ÖÃ±ÜÃâ½øÈëwhileËÀÑ­»·
+                ++start_first;
+            }
+            if (matched_list_end == matched_start) {
+              // µ±Ç°Ïî¸úÇ°ÃæµÄÆ¥ÅäÊÇ³É¹¦µÄ²¢ÇÒÊÇÏàÁ¬µÄ£¬¼ÌÐøforÑ­»·£¬Æ¥ÅäÏÂÒ»Ïî
+              matched_list_end = matched_end;
+              continue;
+            }
+          }
+
+          // µÚÒ»ÏîÒÑ¾­Æ¥Åä³É¹¦£¬µ«ºóÃæÄ³ÏîÆ¥ÅäÊ§°Ü£¬Ìø³öfor£¬ÖØÐÂ½øÈëwhileÑ­»·
+          matched_list_start = -1;
+          matched_list_end = -1;
+          start = start_first;
+
+          // µÚÒ»ÏîÆ¥ÅäÊ§°Ü£¬ÔòÌø³öfor£¬ Í¬Ê±ÉèÖÃstartµ½Ä©Î²£¬ÒÔÖÕÖ¹while
+          if (i == 0) {
+            start = end;
+          }
+          break;
+        }
+
+        if (matched_list_start != -1 && matched_list_end != -1) {
+          // listÖÐËùÓÐÏî¶¼Æ¥Åä³É¹¦£¬±£´æµ½½á¹ûÁÐ±í£¬startÎ»ÖÃ´ÓÕâ´ÎÆ¥Åä³É¹¦µÄÎ²²¿ÖØÐÂ¿ªÊ¼
+          QTextCursor cursor = textCursor();
+          cursor.setPosition(matched_list_start);
+          cursor.setPosition(matched_list_end, QTextCursor::KeepAnchor);
+          results.append(cursor);
+          start = matched_list_end;
+          continue;
+        }
+      }
+      return results;
     }
-    return findAllTextInDocument(regex, flags, p_start, p_end);
-  } else {
-    return findAllTextInDocument(p_text, flags, p_start, p_end);
   }
+  // no newline search here
+  while (start < end) {
+    QTextCursor cursor = matchText(p_text, p_flags, start, end);
+    if (!cursor.isNull()) {
+      start = cursor.selectionEnd(); // Æ¥Åä³É¹¦µÄËÑË÷Î²²¿£¬++iÑ­»·µÄÆðÊ¼µØÖ·
+      results.append(cursor);
+      if (start == cursor.selectionStart()) // ³¤¶ÈÎª0µ÷ÕûËÑË÷Î»ÖÃ±ÜÃâËÀÑ­»·
+        ++start;
+      continue;
+    }
+    break; // ËÑË÷²»³É¹¦ÖÕÖ¹while
+  }
+  return results;
 }
+// modify by zhangyw for find newline
 
 QTextCursor VTextEdit::findText(const QString &p_text, FindFlags p_flags, int p_start) {
   if (p_text.isEmpty()) {
@@ -203,6 +267,16 @@ QTextCursor VTextEdit::findText(const QString &p_text, FindFlags p_flags, int p_
 
   auto flags = findFlagsToDocumentFindFlags(p_flags);
   if (p_flags & FindFlag::RegularExpression) {
+    // add by zhangyw for find newline
+    if (p_text.compare("\\n", Qt::CaseInsensitive) == 0) {
+      QTextCursor cursor = textCursor();
+      cursor.setPosition(p_start);
+      cursor.movePosition(QTextCursor::EndOfBlock);
+      if (cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor))
+        return cursor;
+    }
+    // add by zhangyw for find newline
+
     QRegularExpression regex(p_text);
     if (!regex.isValid()) {
       return QTextCursor();
@@ -212,6 +286,34 @@ QTextCursor VTextEdit::findText(const QString &p_text, FindFlags p_flags, int p_
     return findTextInDocument(p_text, flags, p_start);
   }
 }
+
+// add by zhangyw for find newline
+QTextCursor VTextEdit::matchText(const QString &p_text, FindFlags p_flags, int p_start, int p_end) {
+  if (p_text.isEmpty()) {
+    return QTextCursor();
+  }
+
+  auto flags = findFlagsToDocumentFindFlags(p_flags);
+  if (p_flags & FindFlag::RegularExpression) {
+
+    if (p_text.compare("\\n", Qt::CaseInsensitive) == 0) {
+      QTextCursor cursor = textCursor();
+      cursor.setPosition(p_start);
+      cursor.movePosition(QTextCursor::EndOfBlock);
+      if (cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor))
+        return cursor;
+    }
+
+    QRegularExpression regex(p_text);
+    if (!regex.isValid()) {
+      return QTextCursor();
+    }
+    return matchTextInDocument(regex, flags, p_start, p_end);
+  } else {
+    return matchTextInDocument(p_text, flags, p_start, p_end);
+  }
+}
+// add by zhangyw for find newline
 
 void VTextEdit::setInputMode(const QSharedPointer<AbstractInputMode> &p_mode) {
   Q_ASSERT(p_mode != m_inputMode);
@@ -243,13 +345,31 @@ void VTextEdit::keyPressEvent(QKeyEvent *p_event) {
   }
 }
 
-void VTextEdit::keyReleaseEvent(QKeyEvent *p_event) {
-  if (m_inputMethodDisabledAfterLeaderKey) {
-    if (--m_leaderKeyReleaseCount < 0) {
+// add by zhangyw count is zero, change disable mode to enable
+void VTextEdit::recoverInputMethodEnabled() {
+  if (m_leaderKeyReleaseCount <= 0 && m_navigationKeyCount <= 0) {
+    if (m_inputMethodDisabledAfterLeaderKey || m_navigationMode) {
       m_inputMethodDisabledAfterLeaderKey = false;
+      m_navigationMode = false;
       setInputMethodEnabled(true);
     }
   }
+}
+// add by zhangyw count is zero, change disable mode to enable
+
+void VTextEdit::keyReleaseEvent(QKeyEvent *p_event) {
+  if (m_leaderKeyReleaseCount > 0) {
+    m_leaderKeyReleaseCount--;
+  }
+  if (m_leaderKeyReleaseCount <= 0) {
+    if (m_navigationMode == false && m_navigationModeWithLeaderKey &&
+        m_navigationModeKeysToSkip.m_key == p_event->key() &&
+        m_navigationModeKeysToSkip.m_modifiers == p_event->modifiers()) {
+      m_navigationKeyCount = 2;
+      m_navigationMode = true;
+    }
+  }
+  recoverInputMethodEnabled();
 
   QTextEdit::keyReleaseEvent(p_event);
 }
@@ -333,6 +453,18 @@ void VTextEdit::handleDefaultKeyPress(QKeyEvent *p_event) {
 
 bool VTextEdit::eventFilter(QObject *p_obj, QEvent *p_event) {
   switch (p_event->type()) {
+
+  // add by zhangyw leaderkey skip, navigationMode skip extra keys
+  case QEvent::FocusIn: {
+    if (m_leaderKeyReleaseCount > 0) {
+      m_leaderKeyReleaseCount = 0;
+    }
+    if (m_navigationKeyCount > 0) {
+      m_navigationKeyCount = 0;
+    }
+    recoverInputMethodEnabled();
+    break;
+  }
   case QEvent::ShortcutOverride: {
     // This event is sent when a shortcut is about to trigger.
     // If the override event is accepted, the event is delivered
@@ -342,9 +474,28 @@ bool VTextEdit::eventFilter(QObject *p_obj, QEvent *p_event) {
         ke->modifiers() == m_leaderKeyToSkip.m_modifiers) {
       setInputMethodEnabled(false);
       m_inputMethodDisabledAfterLeaderKey = true;
-      m_leaderKeyReleaseCount = m_leaderKeyToSkip.GetKeyReleaseCount();
+      m_leaderKeyReleaseCount = m_leaderKeyToSkip.GetKeyReleaseCount() +
+                                1; // release count with function key, extra 1 letter
       break;
     }
+
+    // add by zhangyw navigationmode shortcut without leaderkey
+    if (m_inputMethodEnabled && m_navigationModeWithLeaderKey == false &&
+        ke->key() == m_navigationModeKeysToSkip.m_key &&
+        ke->modifiers() == m_navigationModeKeysToSkip.m_modifiers) {
+      setInputMethodEnabled(false);
+      m_navigationMode = true;
+      m_navigationKeyCount = 2; // key count without function key, extra 2 letters
+      break;
+    }
+
+    // add by zhangyw navigationmode keys can't deal with keyrelease, change here
+    if (ke->modifiers() == Qt::NoModifier && m_navigationKeyCount > 0) {
+      m_navigationKeyCount--;
+      break;
+    }
+    recoverInputMethodEnabled();
+    // add by zhangyw navigationmode keys can't deal with keyrelease, change here
 
     if (m_inputMode && m_inputMode->stealShortcut(ke)) {
       ke->accept();
@@ -696,6 +847,10 @@ void VTextEdit::setInputMethodEnabled(bool p_enabled) {
   if (m_inputMethodEnabled != p_enabled) {
     m_inputMethodEnabled = p_enabled;
     m_inputMethodDisabledAfterLeaderKey = false;
+    m_leaderKeyReleaseCount = 0;
+
+    m_navigationKeyCount = 0;
+    m_navigationMode = false;
 
     resetInputMethod();
   }
@@ -894,4 +1049,11 @@ bool VTextEdit::handleKeyReturn(QKeyEvent *p_event) {
 void VTextEdit::setLeaderKeyToSkip(int p_key, Qt::KeyboardModifiers p_modifiers) {
   m_leaderKeyToSkip.m_key = p_key;
   m_leaderKeyToSkip.m_modifiers = p_modifiers;
+}
+
+void VTextEdit::setNavigationModeKeysToSkip(int p_key, Qt::KeyboardModifiers p_modifiers,
+                                            bool withLeaderKey) {
+  m_navigationModeKeysToSkip.m_key = p_key;
+  m_navigationModeKeysToSkip.m_modifiers = p_modifiers;
+  m_navigationModeWithLeaderKey = withLeaderKey;
 }

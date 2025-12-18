@@ -38,6 +38,7 @@ public:
   explicit NetworkAccess(QObject *p_parent = nullptr);
 
   void requestAsync(const QUrl &p_url);
+  void requestAsync(const QUrl &p_url, const RawHeaderPairs &p_rawHeader);
 
   static NetworkReply request(const QUrl &p_url);
 

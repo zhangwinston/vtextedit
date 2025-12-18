@@ -33,11 +33,15 @@ public:
   QRectF blockBoundingRect(const QTextBlock &p_block) const Q_DECL_OVERRIDE;
 
   void setCursorWidth(int p_width);
+  void setCursorBlockNumber(const QTextBlock &p_block);
 
   int cursorWidth() const;
+  int cursorBlockNumber() const;
 
   qreal getLeadingSpaceOfLine() const;
   void setLeadingSpaceOfLine(qreal p_leading);
+  void setLeadingSpaceOfLineFactor(qreal p_leading);
+  void setLeadingSpaceOfCodeBlockFactor(qreal p_leading);
 
   // Return the block number which contains point @p_point.
   // If @p_point is at the border, returns the block below.
@@ -164,19 +168,22 @@ private:
   // Set the leading space of a line.
   qreal m_leadingSpaceOfLine = 0;
 
+  qreal m_leadingSpaceOfLineFactor = 0;
+  qreal m_leadingSpaceOfCodeBlockFactor = 0;
   // Block count of the document.
   int m_blockCount = 0;
 
   // Width of the cursor.
   int m_cursorWidth = 1;
 
+  int m_cursorBlockNumber = -1;
   // Right margin for cursor.
   qreal m_cursorMargin = 4;
 
   DocumentResourceMgr *m_resourceMgr = nullptr;
 
   // Whether allow preview of block.
-  bool m_previewEnabled = false;
+  bool m_previewEnabled = true;
 
   // Whether constrain the width of preview to the width of the page.
   bool m_constrainPreviewWidthEnabled = false;

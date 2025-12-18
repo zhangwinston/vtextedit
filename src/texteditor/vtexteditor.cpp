@@ -10,6 +10,7 @@
 #include <vtextedit/theme.h>
 #include <vtextedit/viconfig.h>
 #include <vtextedit/vtextedit.h>
+#include <vtextedit/vtexteditor.h>
 
 #include "editorcompleter.h"
 #include "editorextraselection.h"
@@ -954,13 +955,29 @@ VTextEditor::FindResult VTextEditor::replaceText(const QString &p_text, FindFlag
     Q_ASSERT(!cursor.isNull());
     result.m_totalMatches = 1;
 
-    if ((p_flags & FindFlag::RegularExpression) && hasBackReference(p_replaceText)) {
-      auto newText = resolveBackReferenceInReplaceText(
-          p_replaceText, TextEditUtils::getSelectedText(cursor), QRegularExpression(p_text));
-      cursor.insertText(newText);
-    } else {
-      cursor.insertText(p_replaceText);
+    QString newText = p_replaceText;
+    QStringList newlist;
+    if (p_flags & FindFlag::RegularExpression) {
+      if (hasBackReference(p_replaceText)) {
+        newText = resolveBackReferenceInReplaceText(
+            p_replaceText, TextEditUtils::getSelectedText(cursor), QRegularExpression(p_text));
+      }
+
+      newlist = TextUtils::listWithNewline(newText);
     }
+
+    if (!newlist.isEmpty()) {
+      for (auto item : newlist) {
+        if (item == "\\n") {
+          cursor.insertBlock();
+        } else {
+          cursor.insertText(item);
+        }
+      }
+    } else {
+      cursor.insertText(newText);
+    }
+    // modfiy by zhangyw for newline replace
     m_textEdit->setTextCursor(cursor);
   }
   return result;
@@ -991,14 +1008,30 @@ VTextEditor::FindResult VTextEditor::replaceAll(const QString &p_text, FindFlags
       cursor.setPosition(result.selectionStart());
       cursor.setPosition(result.selectionEnd(), QTextCursor::KeepAnchor);
 
+      QString newText = p_replaceText;
+      QStringList newlist;
       if (hasBackRef) {
-        auto newText = resolveBackReferenceInReplaceText(
-            p_replaceText, TextEditUtils::getSelectedText(cursor), regExp);
-        cursor.insertText(newText);
+        newText = resolveBackReferenceInReplaceText(p_replaceText,
+                                                    TextEditUtils::getSelectedText(cursor), regExp);
+      }
+      if (p_flags & FindFlag::RegularExpression) {
+        newlist = TextUtils::listWithNewline(newText);
+      }
+
+      if (!newlist.isEmpty()) {
+        for (auto item : newlist) {
+          if (item == "\\n") {
+            cursor.insertBlock();
+          } else {
+            cursor.insertText(item);
+          }
+        }
       } else {
-        cursor.insertText(p_replaceText);
+        cursor.insertText(newText);
       }
     }
+
+    // modify by zhangyw for newline
     cursor.endEditBlock();
     m_textEdit->setTextCursor(cursor);
   }
@@ -1277,4 +1310,9 @@ void VTextEditor::updateIndicatorsBorder() { m_indicatorsBorder->updateBorder();
 
 void VTextEditor::setLeaderKeyToSkip(int p_key, Qt::KeyboardModifiers p_modifiers) {
   m_textEdit->setLeaderKeyToSkip(p_key, p_modifiers);
+}
+
+void VTextEditor::setNavigationModeKeyToSkip(int p_key, Qt::KeyboardModifiers p_modifiers,
+                                             bool withLeaderkey) {
+  m_textEdit->setNavigationModeKeysToSkip(p_key, p_modifiers, withLeaderkey);
 }

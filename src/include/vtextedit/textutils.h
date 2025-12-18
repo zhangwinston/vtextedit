@@ -55,6 +55,7 @@ public:
 
   static QString lineEndingString(LineEnding p_lineEnding);
 
+  static QStringList listWithNewline(const QString &p_text);
   // Whether the char at @p_offset is escpaed.
   static bool isEscaped(const QString &p_text, int p_offset,
                         const QChar &p_escapeChar = QLatin1Char('\\'));

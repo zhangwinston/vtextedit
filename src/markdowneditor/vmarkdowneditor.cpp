@@ -92,6 +92,13 @@ void VMarkdownEditor::setupDocumentLayout() {
 
   connect(m_textEdit, &VTextEdit::cursorWidthChanged, this,
           [this]() { documentLayout()->setCursorWidth(m_textEdit->cursorWidth()); });
+  connect(m_textEdit, &VTextEdit::cursorPositionChanged, this, [this]() {
+    QTextCursor cursor(m_textEdit->textCursor());
+    if (cursor.blockNumber() != documentLayout()->cursorBlockNumber()) {
+      documentLayout()->setCursorBlockNumber(cursor.block());
+      m_textEdit->viewport()->update();
+    }
+  });
 }
 
 TextDocumentLayout *VMarkdownEditor::documentLayout() const {
@@ -136,6 +143,12 @@ void VMarkdownEditor::updateFromConfig() {
 
   documentLayout()->setConstrainPreviewWidthEnabled(
       m_config->m_constrainInplacePreviewWidthEnabled);
+
+  // zhangyw add space for lines/codeblock
+  documentLayout()->setLeadingSpaceOfLineFactor(m_config->m_leading_space_line_factor);
+  documentLayout()->setLeadingSpaceOfCodeBlockFactor(
+      m_config->m_leading_space_line_code_block_factor);
+  // zhangyw add space for lines/codeblock
 
   updateInplacePreviewSources();
 

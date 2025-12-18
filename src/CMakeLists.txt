@@ -62,12 +62,14 @@ add_library(VTextEdit SHARED
     inputmode/viinputmodefactory.cpp inputmode/viinputmodefactory.h
     inputmode/vscodeinputmode.cpp inputmode/vscodeinputmode.h
     inputmode/vscodeinputmodefactory.cpp inputmode/vscodeinputmodefactory.h
+    markdowneditor/blocktextdata.cpp
     markdowneditor/codeblockhighlighter.cpp
     markdowneditor/documentresourcemgr.cpp markdowneditor/documentresourcemgr.h
     markdowneditor/editorpegmarkdownhighlighter.cpp markdowneditor/editorpegmarkdownhighlighter.h
     markdowneditor/editorpreviewmgr.cpp markdowneditor/editorpreviewmgr.h
     markdowneditor/ksyntaxcodeblockhighlighter.cpp markdowneditor/ksyntaxcodeblockhighlighter.h
     markdowneditor/markdowneditorconfig.cpp
+    markdowneditor/optimized_blocktextdata.cpp
     markdowneditor/peghighlightblockdata.h
     markdowneditor/peghighlighterresult.cpp markdowneditor/peghighlighterresult.h
     markdowneditor/pegmarkdownhighlighter.cpp

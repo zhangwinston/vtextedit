@@ -200,26 +200,28 @@ bool MarkdownUtils::insertHeading(QTextCursor &p_cursor, const QTextBlock &p_blo
   QString text = p_block.text();
   bool textChanged = false;
   auto match = matchHeader(text);
+  int level = 0;
   if (match.m_matched) {
-    const int level = match.m_level;
-    if (level == targetLevel) {
-      return false;
-    } else {
-      // Remove the title mark.
-      int length = level;
-      if (targetLevel == 0) {
-        // Remove the whole prefix till the heading content.
-        length = match.m_level + match.m_spacesAfterMarker;
-      }
-
-      p_cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, length);
-      p_cursor.removeSelectedText();
-      textChanged = true;
+    level = match.m_level;
+    //        const int level = match.m_level;
+    //        if (level == targetLevel) { // repeat set same level, remove the title mark
+    //            return false;
+    //        } else {
+    // Remove the title mark.
+    int length = level;
+    if (targetLevel == 0 || level == targetLevel) {
+      // Remove the whole prefix till the heading content.
+      length = match.m_level + match.m_spacesAfterMarker;
     }
+
+    p_cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor, length);
+    p_cursor.removeSelectedText();
+    textChanged = true;
+    //        }
   }
 
   // Insert heading mark + " " at the front of the block.
-  if (targetLevel > 0) {
+  if (targetLevel > 0 && level != targetLevel) {
     // Remove the spaces at front.
     if (textChanged) {
       text = p_block.text();
@@ -656,11 +658,17 @@ void MarkdownUtils::typeBlockMarker(VTextEdit *p_edit, const QString &p_startMar
     const auto &selection = p_edit->getSelection();
     int start = selection.start();
     int end = selection.end();
+    QTextBlock endBlock0 = cursor.block();
 
     cursor.clearSelection();
     cursor.setPosition(start);
     const QString indentSpaces = TextUtils::fetchIndentationSpaces(cursor.block().text());
     cursor.setPosition(end);
+    // add by zhangyw for refine type block marker
+    if (end == endBlock0.position()) {
+      cursor.movePosition(QTextCursor::PreviousCharacter);
+    }
+    // add by zhangyw for refine type block marker
     TextEditUtils::insertBlock(cursor, false);
     cursor.insertText(indentSpaces + p_endMarker);
 

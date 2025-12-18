@@ -1,6 +1,7 @@
 #include "textdocumentlayout.h"
 
 #include <QDebug>
+#include <QElapsedTimer>
 #include <QFont>
 #include <QFontMetrics>
 #include <QPainter>
@@ -10,7 +11,9 @@
 #include <QTextFrame>
 #include <QTextLayout>
 
+#include <vtextedit/blocktextdata.h>
 #include <vtextedit/previewdata.h>
+#include <vtextedit/stack_dumper.h>
 #include <vtextedit/textblockdata.h>
 
 #include "documentresourcemgr.h"
@@ -23,6 +26,11 @@ const int TextDocumentLayout::c_markerThickness = 2;
 const int TextDocumentLayout::c_maxInlineImageHeight = 400;
 
 const int TextDocumentLayout::c_imagePadding = 2;
+#define LOG_DEBUG                                                                                  \
+  {                                                                                                \
+    auto str = StackDumper().DumpStack();                                                          \
+    qWarning() << str.data();                                                                      \
+  }
 
 static bool realEqual(qreal p_a, qreal p_b) { return qAbs(p_a - p_b) < 1e-8; }
 
@@ -207,8 +215,16 @@ void TextDocumentLayout::draw(QPainter *p_painter, const PaintContext &p_context
 
     auto selections = formatRangeFromSelection(block, p_context.selections);
 
-    layout->draw(p_painter, offset, selections,
-                 p_context.clip.isValid() ? p_context.clip : QRectF());
+    // modify by zhangyw for modify text display
+    //         if(m_cursorBlockNumber==block.blockNumber()){
+    //             layout->draw(p_painter,offset,selections,p_context.clip.isValid() ?
+    //             p_context.clip : QRectF());
+    //         }else{
+    auto linesData = BlockLinesData::get(block);
+    linesData->drawOptimized(p_painter, offset, p_context, selections,
+                             document()->defaultTextOption(), block);
+    //        }
+    // modify by zhangyw for modify text display
 
     drawPreview(p_painter, block, offset);
 
@@ -345,6 +361,8 @@ void TextDocumentLayout::documentChanged(int p_from, int p_charsRemoved, int p_c
   QTextDocument *doc = document();
   int newBlockCount = doc->blockCount();
 
+  if (doc->characterCount() <= 1)
+    return;
   // Update the margin.
   m_margin = doc->documentMargin();
 
@@ -441,8 +459,20 @@ void TextDocumentLayout::layoutBlock(const QTextBlock &p_block) {
   QTextDocument *doc = document();
   Q_ASSERT(m_margin == doc->documentMargin());
 
+  if (document()->pageSize().width() < 100)
+    return;
   QTextLayout *tl = p_block.layout();
   QTextOption option = doc->defaultTextOption();
+
+  // zhangyw add space for lines/codeblock
+  if (p_block.userState() == -1) {
+    setLeadingSpaceOfLine(QFontMetrics((p_block.charFormat()).font()).height() *
+                          m_leadingSpaceOfLineFactor);
+  } else {
+    setLeadingSpaceOfLine(QFontMetrics((p_block.charFormat()).font()).height() *
+                          m_leadingSpaceOfCodeBlockFactor);
+  }
+  // zhangyw add space for lines/codeblock
 
   {
     auto direction = p_block.textDirection();
@@ -488,7 +518,7 @@ void TextDocumentLayout::layoutBlock(const QTextBlock &p_block) {
 
 void TextDocumentLayout::updateOffsetBefore(const QTextBlock &p_block) {
   auto info = BlockLayoutData::get(p_block);
-  Q_ASSERT(!info->isNull());
+  // Q_ASSERT(!info->isNull());
 
   const int blockNum = p_block.blockNumber();
   if (blockNum == 0) {
@@ -516,7 +546,7 @@ void TextDocumentLayout::updateOffsetBefore(const QTextBlock &p_block) {
       blk = blk.next();
       while (blk.isValid() && blk.blockNumber() <= blockNum) {
         auto ninfo = BlockLayoutData::get(blk);
-        Q_ASSERT(!ninfo->isNull());
+        // Q_ASSERT(!ninfo->isNull());
         ninfo->m_offset = offset;
         offset = ninfo->bottom();
         blk = blk.next();
@@ -525,16 +555,15 @@ void TextDocumentLayout::updateOffsetBefore(const QTextBlock &p_block) {
       break;
     }
 
-    Q_ASSERT(info->hasOffset());
+    // Q_ASSERT(info->hasOffset());
   }
 }
 
 // NOTICE: It will skip non-layouted or offset-non-changed blocks.
-// So if you relayout separated blocks, you need to updateOffsetAfter() for each
-// of them.
+// So if you relayout separated blocks, you need to updateOffsetAfter() for each of them.
 void TextDocumentLayout::updateOffsetAfter(const QTextBlock &p_block) {
   auto info = BlockLayoutData::get(p_block);
-  Q_ASSERT(info->hasOffset());
+  // Q_ASSERT(info->hasOffset());
   qreal offset = info->bottom();
   QTextBlock blk = p_block.next();
   while (blk.isValid()) {
@@ -570,9 +599,17 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block, QTextLayout *p_
     }
   }
 
+  const auto &linesData = BlockLinesData::get(p_block);
+  //    if(m_cursorBlockNumber!=p_block.blockNumber()){
+  linesData->initBlockRanges(m_cursorBlockNumber, p_block);
+  linesData->getBlockRanges(p_block);
+  //    }
+
   p_tl->beginLayout();
 
   int imgIdx = 0;
+  bool firstLine = true;
+  int start = 0;
   while (true) {
     QTextLine line = p_tl->createLine();
     if (!line.isValid()) {
@@ -582,7 +619,16 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block, QTextLayout *p_
     // Will introduce extra space on macOS.
     // line.setLeadingIncluded(true);
     line.setLineWidth(p_availableWidth);
-    p_height += m_leadingSpaceOfLine;
+    if (firstLine == true) {
+      firstLine = false;
+      auto preBlk = p_block.previous();
+      if (p_block.blockNumber() == 0 ||
+          (preBlk.isValid() && preBlk.length() > 1 && (p_block.length() > 1))) {
+        p_height += m_leadingSpaceOfLine;
+      }
+    } else {
+      p_height += m_leadingSpaceOfLine;
+    }
 
     if (pPreviewData) {
       QVector<const PreviewImageData *> images;
@@ -602,6 +648,17 @@ qreal TextDocumentLayout::layoutLines(const QTextBlock &p_block, QTextLayout *p_
 
     line.setPosition(QPointF(m_margin, p_height));
     p_height += line.height();
+
+    //        if(m_cursorBlockNumber!=p_block.blockNumber()){
+    start = linesData->getLineRanges(line, start, p_block);
+    // qWarning() << "layoutLines: start =" << start;
+    if (start >= p_block.text().length()) {
+      // 添加调试信息
+      // qWarning() << "layoutLines: start >= text length, start=" << start  < "textLength=" <<
+      // p_block.text().length() << "blockNumber=" << p_block.blockNumb r();
+      break;
+    }
+    //        }
   }
 
   p_tl->endLayout();
@@ -625,9 +682,11 @@ void TextDocumentLayout::layoutInlineImage(const PreviewImageData *p_data, qreal
 
     ImagePaintData ipd;
     ipd.m_name = p_data->m_imageName;
-    ipd.m_rect = QRectF(
-        QPointF(p_xStart, p_heightInBlock + c_imagePadding + p_imageSpaceHeight - size.height()),
-        size);
+    // Calculate the Y coordinate for the image. The image should be displayed
+    // above the text line. p_heightInBlock is the Y-coordinate for the top
+    // of the line.
+    qreal imageY = p_heightInBlock + c_imagePadding;
+    ipd.m_rect = QRectF(QPointF(p_xStart, imageY), size);
     if (p_data->m_backgroundColor != 0) {
       ipd.m_backgroundColor = QColor(p_data->m_backgroundColor);
     }
@@ -642,14 +701,14 @@ void TextDocumentLayout::finishBlockLayout(const QTextBlock &p_block,
   Q_ASSERT(p_block.isValid());
   ImagePaintData ipd;
   auto info = BlockLayoutData::get(p_block);
-  Q_ASSERT(info->isNull());
+  // Q_ASSERT(info->isNull());
   info->reset();
   info->m_rect = blockRectFromTextLayout(p_block, &ipd);
   Q_ASSERT(!info->m_rect.isNull());
 
   bool hasImage = false;
   if (ipd.isValid()) {
-    Q_ASSERT(p_markers.isEmpty());
+    // Q_ASSERT(p_markers.isEmpty());
     Q_ASSERT(p_images.isEmpty());
     info->m_images.append(ipd);
     hasImage = true;
@@ -667,7 +726,7 @@ void TextDocumentLayout::finishBlockLayout(const QTextBlock &p_block,
     mk.m_start = QPointF(-1, 0);
     mk.m_end = QPointF(-1, info->m_rect.height());
 
-    info->m_markers.append(mk);
+    // info->m_markers.append(mk);
   }
 }
 
@@ -691,7 +750,7 @@ void TextDocumentLayout::updateDocumentSize() {
   QTextBlock blk = document()->firstBlock();
   while (blk.isValid()) {
     auto ninfo = BlockLayoutData::get(blk);
-    Q_ASSERT(ninfo->hasOffset());
+    // Q_ASSERT(ninfo->hasOffset());
     if (m_width < ninfo->m_rect.width()) {
       m_width = ninfo->m_rect.width();
       m_maximumWidthBlockNumber = blk.blockNumber();
@@ -738,7 +797,10 @@ QRectF TextDocumentLayout::blockRectFromTextLayout(const QTextBlock &p_block,
         if (p_image) {
           p_image->m_name = img->m_imageName;
           p_image->m_rect =
-              QRectF(padding + m_margin, br.height() + m_leadingSpaceOfLine + c_imagePadding,
+              QRectF(padding + m_margin,
+                     //                                 br.height() + m_leadingSpaceOfLine +
+                     //                                 c_imagePadding,
+                     br.height() + c_imagePadding, // zhangyw modify remove leadingSpaceOfLine
                      size.width(), size.height());
           if (img->m_backgroundColor != 0) {
             p_image->m_backgroundColor = QColor(img->m_backgroundColor);
@@ -746,7 +808,8 @@ QRectF TextDocumentLayout::blockRectFromTextLayout(const QTextBlock &p_block,
         }
 
         int dw = padding + size.width() + m_margin - br.width();
-        int dh = size.height() + m_leadingSpaceOfLine + c_imagePadding * 2;
+        // int dh = size.height() + m_leadingSpaceOfLine + c_imagePadding * 2;
+        int dh = size.height() + c_imagePadding * 2; // zhangyw modify remove leadingSpaceOfLine
         br.adjust(0, 0, dw > 0 ? dw : 0, dh);
       }
     }
@@ -951,8 +1014,8 @@ qreal TextDocumentLayout::fetchInlineImagesForOneLine(const QVector<PreviewData 
           p_index = i + 1;
         } else {
           // Just put a marker here.
-          p_images.append(NULL);
-          p_imageRange.append(QPair<qreal, qreal>(startX, endX));
+          // p_images.append(NULL);
+          // p_imageRange.append(QPair<qreal, qreal>(startX, endX));
         }
 
         break;
@@ -976,8 +1039,8 @@ qreal TextDocumentLayout::fetchInlineImagesForOneLine(const QVector<PreviewData 
         p_index = i + 1;
       } else {
         // Image i has been drawn. Just put a marker here.
-        p_images.append(NULL);
-        p_imageRange.append(QPair<qreal, qreal>(startX, endX));
+        // p_images.append(NULL);
+        // p_imageRange.append(QPair<qreal, qreal>(startX, endX));
       }
 
       if (img->m_endPos >= end) {
@@ -1023,12 +1086,38 @@ void TextDocumentLayout::setCursorWidth(int p_width) { m_cursorWidth = p_width; 
 
 int TextDocumentLayout::cursorWidth() const { return m_cursorWidth; }
 
+void TextDocumentLayout::setCursorBlockNumber(const QTextBlock &p_block) {
+  if (document()->characterCount() <= 1)
+    return;
+
+  int pre_blockNumber = m_cursorBlockNumber;
+  QTextBlock pre_block = document()->findBlockByNumber(pre_blockNumber);
+  m_cursorBlockNumber = p_block.blockNumber();
+
+  if (pre_blockNumber < m_cursorBlockNumber) {
+    if (pre_block.isValid()) {
+      layoutBlockAndUpdateOffset(pre_block);
+    }
+    layoutBlockAndUpdateOffset(p_block);
+
+  } else {
+    layoutBlockAndUpdateOffset(p_block);
+    if (pre_block.isValid()) {
+      layoutBlockAndUpdateOffset(pre_block);
+    }
+  }
+}
+
+int TextDocumentLayout::cursorBlockNumber() const { return m_cursorBlockNumber; }
 void TextDocumentLayout::layoutBlockAndUpdateOffset(const QTextBlock &p_block) {
   layoutBlock(p_block);
   updateOffset(p_block);
 }
 
 void TextDocumentLayout::updateOffset(const QTextBlock &p_block) {
+  auto info = BlockLayoutData::get(p_block);
+  if (info->isNull())
+    return;
   updateOffsetBefore(p_block);
   updateOffsetAfter(p_block);
 }
@@ -1060,6 +1149,16 @@ qreal TextDocumentLayout::getLeadingSpaceOfLine() const { return m_leadingSpaceO
 void TextDocumentLayout::setLeadingSpaceOfLine(qreal p_leading) {
   if (p_leading >= 0) {
     m_leadingSpaceOfLine = p_leading;
+  }
+}
+void TextDocumentLayout::setLeadingSpaceOfLineFactor(qreal p_leading_space_factor) {
+  if (p_leading_space_factor >= 0) {
+    m_leadingSpaceOfLineFactor = p_leading_space_factor;
+  }
+}
+void TextDocumentLayout::setLeadingSpaceOfCodeBlockFactor(qreal p_leading_space_codeblock_factor) {
+  if (p_leading_space_codeblock_factor >= 0) {
+    m_leadingSpaceOfCodeBlockFactor = p_leading_space_codeblock_factor;
   }
 }
 

@@ -46,12 +46,12 @@ struct BlockLayoutData {
   bool hasOffset() const { return m_offset > -1 && !m_rect.isNull(); }
 
   qreal top() const {
-    Q_ASSERT(hasOffset());
+    // Q_ASSERT(hasOffset());
     return m_offset;
   }
 
   qreal bottom() const {
-    Q_ASSERT(hasOffset());
+    // Q_ASSERT(hasOffset());
     return m_offset + m_rect.height();
   }
 
