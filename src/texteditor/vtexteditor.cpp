@@ -1175,31 +1175,6 @@ VTextEditor::FindResult VTextEditor::replaceText(const QString &p_text, FindFlag
                   p_replaceText, m_findResultCache.m_regExpMatches.at(result.m_currentMatchIndex))
             : p_replaceText;
     cursor.insertText(text);
-    result.m_totalMatches = 1;
-
-    QString newText = p_replaceText;
-    QStringList newlist;
-    if (p_flags & FindFlag::RegularExpression) {
-      if (hasBackReference(p_replaceText)) {
-        newText = resolveBackReferenceInReplaceText(
-            p_replaceText, TextEditUtils::getSelectedText(cursor), QRegularExpression(p_text));
-      }
-
-      newlist = TextUtils::listWithNewline(newText);
-    }
-
-    if (!newlist.isEmpty()) {
-      for (auto item : newlist) {
-        if (item == "\\n") {
-          cursor.insertBlock();
-        } else {
-          cursor.insertText(item);
-        }
-      }
-    } else {
-      cursor.insertText(newText);
-    }
-    // modfiy by zhangyw for newline replace
     m_textEdit->setTextCursor(cursor);
     result.m_totalMatches = 1;
     clearSearchHighlight();
@@ -1247,37 +1222,7 @@ VTextEditor::FindResult VTextEditor::replaceAll(const QString &p_text, FindFlags
       cursor.setPosition(it->m_start);
       cursor.setPosition(it->m_end, QTextCursor::KeepAnchor);
       cursor.insertText(it->m_text);
-    bool hasBackRef =
-        (p_flags & FindFlag::RegularExpression) ? hasBackReference(p_replaceText) : false;
-    QRegularExpression regExp(hasBackRef ? p_text : QString());
-    for (const auto &result : allResults) {
-      cursor.setPosition(result.selectionStart());
-      cursor.setPosition(result.selectionEnd(), QTextCursor::KeepAnchor);
-
-      QString newText = p_replaceText;
-      QStringList newlist;
-      if (hasBackRef) {
-        newText = resolveBackReferenceInReplaceText(p_replaceText,
-                                                    TextEditUtils::getSelectedText(cursor), regExp);
-      }
-      if (p_flags & FindFlag::RegularExpression) {
-        newlist = TextUtils::listWithNewline(newText);
-      }
-
-      if (!newlist.isEmpty()) {
-        for (auto item : newlist) {
-          if (item == "\\n") {
-            cursor.insertBlock();
-          } else {
-            cursor.insertText(item);
-          }
-        }
-      } else {
-        cursor.insertText(newText);
-      }
     }
-
-    // modify by zhangyw for newline
     cursor.endEditBlock();
     m_textEdit->setTextCursor(finalCursor);
   }
