@@ -252,84 +252,8 @@ QList<QTextCursor> VTextEdit::findAllText(const QString &p_text, FindFlags p_fla
                        }
                        return true;
                      });
-  if (p_text.isEmpty() || (p_start >= p_end && p_end >= 0)) {
-    return QList<QTextCursor>();
-  }
-
-  int end = p_end == -1 ? document()->characterCount() + 1 : p_end;
-  int start = p_start;
-  int matched_start = -1;
-  int matched_end = -1;
-
-  if (p_flags & FindFlag::RegularExpression) {
-    QStringList testList = TextUtils::listWithNewline(p_text);
-    if (!testList.isEmpty()) {
-      int start_first = p_start;
-      int matched_list_start = -1;
-      int matched_list_end = -1;
-      while (start < end) {
-        for (int i = 0; i < testList.count(); ++i) {
-          QTextCursor cursor = matchText(testList.at(i), p_flags, start, end);
-          if (cursor.isNull() == false) {
-            start = cursor.selectionEnd(); // Æ¥Åä³É¹¦µÄËÑË÷Î²²¿£¬++iÑ­»·µÄÆðÊ¼µØÖ·
-            matched_start = cursor.selectionStart();
-            matched_end = cursor.selectionEnd();
-            if (i == 0) { // Æ¥ÅäÆðÊ¼Î»ÖÃ
-              matched_list_start = matched_start;
-              matched_list_end = matched_start;
-
-              start_first =
-                  start; // µÚ1ÏîÆ¥Åä³É¹¦µÄËÑË÷Î²²¿£¬ÁÙÊ±±£´æ£¬ºóÃæ¿ÉÄÜÒªÖØÐÂ½øÈëforÑ­»·ÆðÊ¼µØÖ·
-              if (matched_start == matched_end) // ³¤¶ÈÎª0µ÷ÕûËÑË÷Î»ÖÃ±ÜÃâ½øÈëwhileËÀÑ­»·
-                ++start_first;
-            }
-            if (matched_list_end == matched_start) {
-              // µ±Ç°Ïî¸úÇ°ÃæµÄÆ¥ÅäÊÇ³É¹¦µÄ²¢ÇÒÊÇÏàÁ¬µÄ£¬¼ÌÐøforÑ­»·£¬Æ¥ÅäÏÂÒ»Ïî
-              matched_list_end = matched_end;
-              continue;
-            }
-          }
-
-          // µÚÒ»ÏîÒÑ¾­Æ¥Åä³É¹¦£¬µ«ºóÃæÄ³ÏîÆ¥ÅäÊ§°Ü£¬Ìø³öfor£¬ÖØÐÂ½øÈëwhileÑ­»·
-          matched_list_start = -1;
-          matched_list_end = -1;
-          start = start_first;
-
-          // µÚÒ»ÏîÆ¥ÅäÊ§°Ü£¬ÔòÌø³öfor£¬ Í¬Ê±ÉèÖÃstartµ½Ä©Î²£¬ÒÔÖÕÖ¹while
-          if (i == 0) {
-            start = end;
-          }
-          break;
-        }
-
-        if (matched_list_start != -1 && matched_list_end != -1) {
-          // listÖÐËùÓÐÏî¶¼Æ¥Åä³É¹¦£¬±£´æµ½½á¹ûÁÐ±í£¬startÎ»ÖÃ´ÓÕâ´ÎÆ¥Åä³É¹¦µÄÎ²²¿ÖØÐÂ¿ªÊ¼
-          QTextCursor cursor = textCursor();
-          cursor.setPosition(matched_list_start);
-          cursor.setPosition(matched_list_end, QTextCursor::KeepAnchor);
-          results.append(cursor);
-          start = matched_list_end;
-          continue;
-        }
-      }
-      return results;
-    }
-  }
-  // no newline search here
-  while (start < end) {
-    QTextCursor cursor = matchText(p_text, p_flags, start, end);
-    if (!cursor.isNull()) {
-      start = cursor.selectionEnd(); // Æ¥Åä³É¹¦µÄËÑË÷Î²²¿£¬++iÑ­»·µÄÆðÊ¼µØÖ·
-      results.append(cursor);
-      if (start == cursor.selectionStart()) // ³¤¶ÈÎª0µ÷ÕûËÑË÷Î»ÖÃ±ÜÃâËÀÑ­»·
-        ++start;
-      continue;
-    }
-    break; // ËÑË÷²»³É¹¦ÖÕÖ¹while
-  }
   return results;
 }
-// modify by zhangyw for find newline
 
 QTextCursor VTextEdit::findText(const QString &p_text, FindFlags p_flags, int p_start) {
   auto doc = document();
@@ -343,22 +267,6 @@ QTextCursor VTextEdit::findText(const QString &p_text, FindFlags p_flags, int p_
     const int start = p_match.capturedStart();
     if (backward && start >= p_start && beforeStart) {
       return false;
-
-  auto flags = findFlagsToDocumentFindFlags(p_flags);
-  if (p_flags & FindFlag::RegularExpression) {
-    // add by zhangyw for find newline
-    if (p_text.compare("\\n", Qt::CaseInsensitive) == 0) {
-      QTextCursor cursor = textCursor();
-      cursor.setPosition(p_start);
-      cursor.movePosition(QTextCursor::EndOfBlock);
-      if (cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor))
-        return cursor;
-    }
-    // add by zhangyw for find newline
-
-    QRegularExpression regex(p_text);
-    if (!regex.isValid()) {
-      return QTextCursor();
     }
     if (backward || candidate.isNull() || start >= p_start) {
       candidate = QTextCursor(doc);
@@ -367,37 +275,9 @@ QTextCursor VTextEdit::findText(const QString &p_text, FindFlags p_flags, int p_
     }
     beforeStart = start < p_start;
     return backward || start < p_start;
-  }
+  });
   return candidate;
 }
-
-// add by zhangyw for find newline
-QTextCursor VTextEdit::matchText(const QString &p_text, FindFlags p_flags, int p_start, int p_end) {
-  if (p_text.isEmpty()) {
-    return QTextCursor();
-  }
-
-  auto flags = findFlagsToDocumentFindFlags(p_flags);
-  if (p_flags & FindFlag::RegularExpression) {
-
-    if (p_text.compare("\\n", Qt::CaseInsensitive) == 0) {
-      QTextCursor cursor = textCursor();
-      cursor.setPosition(p_start);
-      cursor.movePosition(QTextCursor::EndOfBlock);
-      if (cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor))
-        return cursor;
-    }
-
-    QRegularExpression regex(p_text);
-    if (!regex.isValid()) {
-      return QTextCursor();
-    }
-    return matchTextInDocument(regex, flags, p_start, p_end);
-  } else {
-    return matchTextInDocument(p_text, flags, p_start, p_end);
-  }
-}
-// add by zhangyw for find newline
 
 void VTextEdit::setInputMode(const QSharedPointer<AbstractInputMode> &p_mode) {
   Q_ASSERT(p_mode != m_inputMode);
