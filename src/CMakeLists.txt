@@ -252,7 +252,7 @@ target_link_libraries(VTextEdit PUBLIC
     sonnet-hunspell
     Hunspell
 )
-target_link_libraries(VTextEdit PRIVATE Qt6::GuiPrivate)
+target_link_libraries(VTextEdit PRIVATE Qt${QT_DEFAULT_MAJOR_VERSION}::GuiPrivate)
 
 # Core5Compat re-provides Qt 5-era APIs on Qt 6; a Qt 5 build has them natively.
 if(QT_DEFAULT_MAJOR_VERSION GREATER 5)
