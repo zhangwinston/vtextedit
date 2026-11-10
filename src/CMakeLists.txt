@@ -7,17 +7,28 @@ project(VTextEdit VERSION 12.0.0 LANGUAGES C CXX)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-find_package(Qt6 6.9 REQUIRED COMPONENTS Core Gui Network Svg Widgets LinguistTools Core5Compat)
+set(QT_DEFAULT_MAJOR_VERSION 6 CACHE STRING "Qt version to use (5 or 6), defaults to 6")
+if(QT_DEFAULT_MAJOR_VERSION GREATER 5)
+    find_package(Qt6 6.9 REQUIRED COMPONENTS Core Gui Network Svg Widgets LinguistTools Core5Compat)
+else()
+    find_package(Qt5 REQUIRED COMPONENTS Core Gui Network Svg Widgets LinguistTools)
+endif()
 
 # The source-indexed concealment adapter requires version-matched private headers.
-if(NOT TARGET Qt6::GuiPrivate)
+if(QT_DEFAULT_MAJOR_VERSION GREATER 5 AND NOT TARGET Qt6::GuiPrivate)
     find_package(Qt6GuiPrivate QUIET)
 endif()
-if(NOT TARGET Qt6::GuiPrivate)
+if(NOT TARGET Qt${QT_DEFAULT_MAJOR_VERSION}::GuiPrivate)
     message(FATAL_ERROR "VTextEdit requires matching Qt Gui private development headers for inline concealment.")
 endif()
 
-qt_standard_project_setup()
+if ((QT_DEFAULT_MAJOR_VERSION GREATER 5))
+    qt_standard_project_setup()
+else()
+    set(CMAKE_AUTOMOC ON)
+    set(CMAKE_AUTORCC ON)
+    set(CMAKE_AUTOUIC ON)
+endif()
 
 set(LIBS_FOLDER "../libs")
 
@@ -243,7 +254,10 @@ target_link_libraries(VTextEdit PUBLIC
 )
 target_link_libraries(VTextEdit PRIVATE Qt6::GuiPrivate)
 
-target_link_libraries(VTextEdit PUBLIC Qt6::Core5Compat)
+# Core5Compat re-provides Qt 5-era APIs on Qt 6; a Qt 5 build has them natively.
+if(QT_DEFAULT_MAJOR_VERSION GREATER 5)
+    target_link_libraries(VTextEdit PUBLIC Qt6::Core5Compat)
+endif()
 
 # 2.0: VMarkdownEditor::tablePreviewVisibleRows()/setTablePreviewVisibleRows()
 # were removed, so an already-linked consumer must not resolve against this
