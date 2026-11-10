@@ -9,11 +9,12 @@ set(CMAKE_AUTORCC ON)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(GNUInstallDirs)
-set(QT_DEFAULT_MAJOR_VERSION 6 CACHE STRING "Qt major version (must be 6)")
-if(NOT QT_DEFAULT_MAJOR_VERSION STREQUAL "6")
-    message(FATAL_ERROR "VTextEdit requires Qt 6.9 or newer. Qt 5 is not supported; set QT_DEFAULT_MAJOR_VERSION=6.")
+# Fork keeps the Qt 5.15 / Windows 7 build of VNote working: Qt 5 remains
+# selectable for the whole dependency tree. Qt 6 builds still require 6.9+.
+set(QT_DEFAULT_MAJOR_VERSION 6 CACHE STRING "Qt version to use (5 or 6), defaults to 6")
+if(QT_DEFAULT_MAJOR_VERSION GREATER 5)
+    find_package(Qt6 6.9 REQUIRED COMPONENTS Core)
 endif()
-find_package(Qt6 6.9 REQUIRED COMPONENTS Core)
 option(VTEXTEDIT_ENABLE_TYPST "Build the native Typst editor and compiler library" OFF)
 option(VTEXTEDIT_BUILD_DEMOS "Build editor demo applications" ON)
 option(VTEXTEDIT_BUILD_TESTS "Build editor tests" ON)
