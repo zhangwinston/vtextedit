@@ -11,8 +11,10 @@ KSyntaxHighlighting::Repository *KSyntaxHighlighterWrapper::s_repository = nullp
 QList<KSyntaxHighlighting::Definition>
 KSyntaxHighlighterWrapper::definitionsForFileName(const QString &p_fileName) {
   // TODO: We should be able to override the mappings by config.
-  auto definitions = repository()->definitionsForFileName(p_fileName).toList();
-  return definitions;
+  // definitionsForFileName() already returns QList on both Qt versions;
+  // QList::toList() is a Qt 6 compatibility identity that does not exist
+  // on Qt 5.
+  return repository()->definitionsForFileName(p_fileName);
 }
 
 KSyntaxHighlighting::Definition
